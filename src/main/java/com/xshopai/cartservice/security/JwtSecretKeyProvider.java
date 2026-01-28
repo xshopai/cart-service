@@ -11,6 +11,7 @@ import org.jboss.logging.Logger;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -92,7 +93,7 @@ public class JwtSecretKeyProvider {
 
         // Token configuration
         contextInfo.setTokenHeader("Authorization");
-        contextInfo.setTokenSchemes(Set.of("Bearer"));
+        contextInfo.setTokenSchemes(List.of("Bearer"));
         contextInfo.setRequireNamedPrincipal(false);
         
         // Clock skew tolerance (30 seconds)

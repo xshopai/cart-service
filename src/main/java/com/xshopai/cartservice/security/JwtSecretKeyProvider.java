@@ -1,5 +1,6 @@
 package com.xshopai.cartservice.security;
 
+import io.smallrye.jwt.algorithm.SignatureAlgorithm;
 import io.smallrye.jwt.auth.principal.JWTAuthContextInfo;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -11,6 +12,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Provides JWT verification key for HS256 symmetric algorithm.
@@ -79,18 +81,18 @@ public class JwtSecretKeyProvider {
         }
 
         // Configure for HS256 symmetric algorithm
-        contextInfo.setSignatureAlgorithm(org.jose4j.jws.AlgorithmIdentifiers.HMAC_SHA256);
+        contextInfo.setSignatureAlgorithm(SignatureAlgorithm.HS256);
         contextInfo.setSecretVerificationKey(secretKey);
         contextInfo.setIssuedBy(issuer);
         
         // Set expected audiences
         audiences.ifPresent(aud -> {
-            contextInfo.setExpectedAudience(java.util.Set.of(aud.split(",")));
+            contextInfo.setExpectedAudience(Set.of(aud.split(",")));
         });
 
         // Token configuration
         contextInfo.setTokenHeader("Authorization");
-        contextInfo.setTokenSchemes(java.util.Set.of("Bearer"));
+        contextInfo.setTokenSchemes(Set.of("Bearer"));
         contextInfo.setRequireNamedPrincipal(false);
         
         // Clock skew tolerance (30 seconds)

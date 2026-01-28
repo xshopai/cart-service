@@ -62,9 +62,9 @@ $ServiceVersion = "1.0.0"
 $AppPort = 8008
 $ProjectName = "xshopai"
 
-# Dapr configuration (per PORT_CONFIGURATION.md: cart-service = 3508/50008)
-$DaprHttpPort = 3508
-$DaprGrpcPort = 50008
+# Dapr configuration (standard ports - same for local dev and ACA)
+$DaprHttpPort = 3500
+$DaprGrpcPort = 50001
 $DaprStatestoreName = "statestore"
 
 # Get script directory and service directory

@@ -14,6 +14,7 @@ Shopping cart microservice for xshopai - high-performance, Redis-backed cart man
 ### Setup
 
 **1. Start Redis**
+
 ```bash
 # Using Docker (recommended)
 docker run -d -p 6379:6379 --name redis \
@@ -23,6 +24,7 @@ docker run -d -p 6379:6379 --name redis \
 ```
 
 **2. Clone & Build**
+
 ```bash
 git clone https://github.com/xshopai/cart-service.git
 cd cart-service
@@ -30,6 +32,7 @@ cd cart-service
 ```
 
 **3. Run with Dapr (Recommended)**
+
 ```bash
 # PowerShell
 .\run.ps1
@@ -39,11 +42,13 @@ cd cart-service
 ```
 
 **4. Or Run Without Dapr (Development)**
+
 ```bash
 ./mvnw quarkus:dev
 ```
 
 **5. Verify**
+
 ```bash
 # Check health
 curl http://localhost:1008/health
@@ -76,12 +81,12 @@ open target/site/jacoco/index.html
 
 ## 📚 Documentation
 
-| Document | Description |
-|----------|-------------|
-| [📖 Developer Guide](docs/DEVELOPER_GUIDE.md) | Local setup, debugging, daily workflows |
-| [📘 Technical Reference](docs/TECHNICAL.md) | Architecture, security, monitoring |
-| [🤝 Contributing](docs/CONTRIBUTING.md) | Contribution guidelines and workflow |
-| [🔐 Secrets Management](.dapr/SECRETS_README.md) | Dapr secret store configuration |
+| Document                                         | Description                             |
+| ------------------------------------------------ | --------------------------------------- |
+| [📖 Developer Guide](docs/DEVELOPER_GUIDE.md)    | Local setup, debugging, daily workflows |
+| [📘 Technical Reference](docs/TECHNICAL.md)      | Architecture, security, monitoring      |
+| [🤝 Contributing](docs/CONTRIBUTING.md)          | Contribution guidelines and workflow    |
+| [🔐 Secrets Management](.dapr/SECRETS_README.md) | Dapr secret store configuration         |
 
 **API Documentation**: Swagger UI at `/swagger-ui` with interactive testing.
 
@@ -151,11 +156,13 @@ cart-service/
 3. **Run with Dapr** (Recommended):
 
    **PowerShell:**
+
    ```powershell
    .\run.ps1
    ```
 
    **Bash:**
+
    ```bash
    ./run.sh
    ```
@@ -167,14 +174,18 @@ cart-service/
    ```
 
 The service will be available at:
+
 - **Application**: http://localhost:1008
 - **Swagger UI**: http://localhost:1008/swagger-ui
 - **Health**: http://localhost:1008/health
-- **Dapr HTTP**: http://localhost:3508 (when using Dapr)
+- **Dapr HTTP**: http://localhost:3500 (when using Dapr)
+
+> **Note:** All services now use the standard Dapr ports (3500 for HTTP, 50001 for gRPC). This simplifies configuration and works consistently whether running via Docker Compose or individual service runs.
 
 ### Development Mode Features
 
 Quarkus dev mode provides:
+
 - ✨ **Instant hot reload** (< 1 second)
 - 🔍 **Live coding** - changes reflect immediately
 - 📊 **Dev UI** - http://localhost:1008/q/dev
@@ -183,12 +194,14 @@ Quarkus dev mode provides:
 ### Docker Deployment
 
 Build native image:
+
 ```bash
 ./mvnw package -Pnative
 docker build -f src/main/docker/Dockerfile.native -t cart-service:native .
 ```
 
 Run with Docker Compose:
+
 ```bash
 docker-compose up cart-service
 ```
@@ -204,6 +217,7 @@ http://localhost:1008/api/v1
 ### Swagger UI
 
 Access interactive API documentation at:
+
 ```text
 http://localhost:1008/swagger-ui
 ```
@@ -272,6 +286,7 @@ start target/site/jacoco/index.html # Windows
 Configuration is managed through `src/main/resources/application.properties`:
 
 ### Key Configuration Properties
+
 ## 🔍 Observability
 
 ### Distributed Tracing with Dapr
@@ -291,7 +306,7 @@ Quarkus provides comprehensive health checks:
 # Liveness probe
 curl http://localhost:1008/health/live
 
-# Readiness probe  
+# Readiness probe
 curl http://localhost:1008/health/ready
 
 # Full health check
@@ -299,6 +314,7 @@ curl http://localhost:1008/health
 ```
 
 Health checks include:
+
 - Redis connectivity
 - Service readiness
 - Custom business logic checks
@@ -313,6 +329,7 @@ curl http://localhost:1008/q/metrics
 ```
 
 Available metrics:
+
 - HTTP request counts and durations
 - Redis connection pool stats
 - JVM memory and GC metrics
@@ -343,6 +360,7 @@ docker-compose -f scripts/docker-compose/docker-compose.infrastructure.yml up ja
 ```
 
 Access UIs:
+
 - **Jaeger**: http://localhost:16686
 - **Grafana**: http://localhost:3000
 - **Prometheus**: http://localhost:9090
@@ -415,6 +433,7 @@ String jwtSecret = secretManager.getJwtSecret();
 ### Authentication
 
 JWT-based authentication using SmallRye JWT:
+
 - User ID extracted from `sub` or `userId` claims
 - Role-based access control ready
 - Token validation via public key
@@ -428,6 +447,7 @@ JWT-based authentication using SmallRye JWT:
 ### Input Validation
 
 Jakarta Bean Validation ensures:
+
 - Required fields present
 - Valid quantity ranges (1-10 per item)
 - Maximum cart size enforcement (100 items)
@@ -471,23 +491,27 @@ Jakarta Bean Validation ensures:
 ### Why Quarkus?
 
 **Developer Experience:**
+
 - ⚡ Instant hot reload eliminates slow build cycles
 - 🔍 Live coding - see changes immediately
 - 🎯 Dev UI for easy testing and debugging
 - 📊 Built-in observability and metrics
 
 **Production Ready:**
+
 - 🚀 High performance with low memory footprint
 - ☁️ Cloud-native design
 - 🔄 Reactive and imperative models
 - 📦 Optional native compilation with GraalVM
 
 **Enterprise Features:**
+
 - 🔐 Comprehensive security (JWT, RBAC, encryption)
 - 📈 Production-grade monitoring and tracing
 - 🏥 Advanced health checks
 - 🔧 Extensive configuration optionsCING_SAMPLE_RATE=1.0
-```
+
+````
 
 ### Running with Jaeger
 
@@ -495,7 +519,7 @@ Jakarta Bean Validation ensures:
 
    ```bash
    docker-compose up jaeger redis
-   ```
+````
 
 2. **Run the cart service**:
 

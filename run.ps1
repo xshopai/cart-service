@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 # Cart Service - PowerShell Run Script with Dapr
-# Port: 8008, Dapr HTTP: 3508, Dapr gRPC: 50008
+# Port: 8008, Dapr HTTP: 3500, Dapr gRPC: 50001
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
@@ -24,17 +24,17 @@ if ($process) {
     Stop-Process -Id $process -Force -ErrorAction SilentlyContinue
 }
 
-# Kill process on port 3508 (Dapr HTTP port)
-$process = Get-NetTCPConnection -LocalPort 3508 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
+# Kill process on port 3500 (Dapr HTTP port)
+$process = Get-NetTCPConnection -LocalPort 3500 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
 if ($process) {
-    Write-Host "Killing process on port 3508 (PID: $process)" -ForegroundColor Yellow
+    Write-Host "Killing process on port 3500 (PID: $process)" -ForegroundColor Yellow
     Stop-Process -Id $process -Force -ErrorAction SilentlyContinue
 }
 
-# Kill process on port 50008 (Dapr gRPC port)
-$process = Get-NetTCPConnection -LocalPort 50008 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
+# Kill process on port 50001 (Dapr gRPC port)
+$process = Get-NetTCPConnection -LocalPort 50001 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
 if ($process) {
-    Write-Host "Killing process on port 50008 (PID: $process)" -ForegroundColor Yellow
+    Write-Host "Killing process on port 50001 (PID: $process)" -ForegroundColor Yellow
     Stop-Process -Id $process -Force -ErrorAction SilentlyContinue
 }
 
@@ -44,15 +44,15 @@ Write-Host ""
 Write-Host "Starting Quarkus cart-service..." -ForegroundColor Green
 Write-Host "App ID: cart-service" -ForegroundColor Cyan
 Write-Host "App Port: 8008" -ForegroundColor Cyan
-Write-Host "Dapr HTTP Port: 3508" -ForegroundColor Cyan
-Write-Host "Dapr gRPC Port: 50008" -ForegroundColor Cyan
+Write-Host "Dapr HTTP Port: 3500" -ForegroundColor Cyan
+Write-Host "Dapr gRPC Port: 50001" -ForegroundColor Cyan
 Write-Host ""
 
 dapr run `
   --app-id cart-service `
   --app-port 8008 `
-  --dapr-http-port 3508 `
-  --dapr-grpc-port 50008 `
+  --dapr-http-port 3500 `
+  --dapr-grpc-port 50001 `
   --log-level info `
   --components-path ./.dapr/components `
   --config ./.dapr/config.yaml `

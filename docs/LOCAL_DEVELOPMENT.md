@@ -87,12 +87,14 @@ For local development with Dapr sidecar:
 
 Or manually:
 
+> **Note:** All services now use the standard Dapr ports (3500 for HTTP, 50001 for gRPC). This simplifies configuration and works consistently whether running via Docker Compose or individual service runs.
+
 ```bash
 dapr run \
   --app-id cart-service \
   --app-port 1008 \
-  --dapr-http-port 3508 \
-  --dapr-grpc-port 50008 \
+  --dapr-http-port 3500 \
+  --dapr-grpc-port 50001 \
   --resources-path .dapr/components \
   --config .dapr/config.yaml \
   -- ./mvnw quarkus:dev

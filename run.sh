@@ -1,6 +1,6 @@
 #!/bin/bash
 # Cart Service - Bash Run Script with Dapr
-# Port: 8008, Dapr HTTP: 3508, Dapr gRPC: 50008
+# Port: 8008, Dapr HTTP: 3500, Dapr gRPC: 50001
 
 echo ""
 echo "============================================"
@@ -18,8 +18,8 @@ if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; t
     
     # Kill processes using PowerShell
     powershell -Command "Get-NetTCPConnection -LocalPort 8008 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id \$_ -Force -ErrorAction SilentlyContinue }" 2>/dev/null || true
-    powershell -Command "Get-NetTCPConnection -LocalPort 3508 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id \$_ -Force -ErrorAction SilentlyContinue }" 2>/dev/null || true
-    powershell -Command "Get-NetTCPConnection -LocalPort 50008 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id \$_ -Force -ErrorAction SilentlyContinue }" 2>/dev/null || true
+    powershell -Command "Get-NetTCPConnection -LocalPort 3500 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id \$_ -Force -ErrorAction SilentlyContinue }" 2>/dev/null || true
+    powershell -Command "Get-NetTCPConnection -LocalPort 50001 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id \$_ -Force -ErrorAction SilentlyContinue }" 2>/dev/null || true
 else
     # Linux/Mac
     IS_WINDOWS=false
@@ -27,11 +27,11 @@ else
     # Kill processes on port 8008 (app port)
     lsof -ti:8008 | xargs kill -9 2>/dev/null || true
 
-    # Kill processes on port 3508 (Dapr HTTP port)
-    lsof -ti:3508 | xargs kill -9 2>/dev/null || true
+    # Kill processes on port 3500 (Dapr HTTP port)
+    lsof -ti:3500 | xargs kill -9 2>/dev/null || true
 
-    # Kill processes on port 50008 (Dapr gRPC port)
-    lsof -ti:50008 | xargs kill -9 2>/dev/null || true
+    # Kill processes on port 50001 (Dapr gRPC port)
+    lsof -ti:50001 | xargs kill -9 2>/dev/null || true
 fi
 
 sleep 2
@@ -40,8 +40,8 @@ echo ""
 echo "Starting Quarkus cart-service..."
 echo "App ID: cart-service"
 echo "App Port: 8008"
-echo "Dapr HTTP Port: 3508"
-echo "Dapr gRPC Port: 50008"
+echo "Dapr HTTP Port: 3500"
+echo "Dapr gRPC Port: 50001"
 echo ""
 
 if [ "$IS_WINDOWS" = true ]; then
@@ -49,8 +49,8 @@ if [ "$IS_WINDOWS" = true ]; then
     MSYS_NO_PATHCONV=1 dapr run \
       --app-id cart-service \
       --app-port 8008 \
-      --dapr-http-port 3508 \
-      --dapr-grpc-port 50008 \
+      --dapr-http-port 3500 \
+      --dapr-grpc-port 50001 \
       --log-level info \
       --resources-path ./.dapr/components \
       --config ./.dapr/config.yaml \
@@ -59,8 +59,8 @@ else
     dapr run \
       --app-id cart-service \
       --app-port 8008 \
-      --dapr-http-port 3508 \
-      --dapr-grpc-port 50008 \
+      --dapr-http-port 3500 \
+      --dapr-grpc-port 50001 \
       --log-level info \
       --resources-path ./.dapr/components \
       --config ./.dapr/config.yaml \

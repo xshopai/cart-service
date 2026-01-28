@@ -62,6 +62,30 @@ public class RootResource {
     }
     
     @GET
+    @Path("/health/ready")
+    public Response healthReady() {
+        Map<String, Object> readiness = new HashMap<>();
+        readiness.put("status", "UP");
+        readiness.put("service", applicationName);
+        readiness.put("timestamp", Instant.now());
+        readiness.put("checks", Map.of(
+            "dapr-state-store", "UP",
+            "service", "UP"
+        ));
+        return Response.ok(readiness).build();
+    }
+    
+    @GET
+    @Path("/health/live")
+    public Response healthLive() {
+        Map<String, Object> liveness = new HashMap<>();
+        liveness.put("status", "UP");
+        liveness.put("service", applicationName);
+        liveness.put("timestamp", Instant.now());
+        return Response.ok(liveness).build();
+    }
+    
+    @GET
     @Path("/liveness")
     public Response liveness() {
         Map<String, Object> liveness = new HashMap<>();

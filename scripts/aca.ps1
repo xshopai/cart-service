@@ -293,6 +293,37 @@ if ($AppExists) {
 } else {
     Write-Info "Creating container app '$ServiceName'..."
     
+    # Get JWT_SECRET from Key Vault for JWT validation
+    Write-Info "Retrieving JWT_SECRET from Key Vault..."
+    $JwtSecret = ""
+    try {
+        $JwtSecret = az keyvault secret show --vault-name $KeyVault --name "jwt-secret" --query value -o tsv 2>$null
+        if ($JwtSecret) {
+            Write-Success "JWT_SECRET retrieved from Key Vault"
+        } else {
+            Write-Warning "JWT_SECRET not found in Key Vault. JWT validation will be disabled."
+            Write-Info "To enable JWT validation, add 'jwt-secret' to Key Vault: $KeyVault"
+        }
+    } catch {
+        Write-Warning "Could not retrieve JWT_SECRET from Key Vault. JWT validation will be disabled."
+    }
+    
+    # Build environment variables list
+    $EnvVars = @(
+        "QUARKUS_PROFILE=$QuarkusProfile",
+        "QUARKUS_HTTP_PORT=$AppPort",
+        "QUARKUS_LOG_LEVEL=$LogLevel",
+        "DAPR_HTTP_PORT=$DaprHttpPort",
+        "DAPR_GRPC_PORT=$DaprGrpcPort",
+        "DAPR_STATESTORE_NAME=$DaprStatestoreName"
+    )
+    
+    if ($JwtSecret) {
+        $EnvVars += "JWT_SECRET=$JwtSecret"
+    }
+    
+    # Note: Using external ingress with JWT validation for /api/* endpoints
+    # Public endpoints (/, /health, /health/*, /metrics, /swagger*) remain unauthenticated
     $CreateArgs = @(
         "--name", $ServiceName,
         "--resource-group", $ResourceGroup,
@@ -302,7 +333,7 @@ if ($AppExists) {
         "--registry-username", $AcrName,
         "--registry-password", $AcrPassword,
         "--target-port", $AppPort,
-        "--ingress", "internal",
+        "--ingress", "external",
         "--min-replicas", "1",
         "--max-replicas", "5",
         "--cpu", "0.5",
@@ -310,15 +341,10 @@ if ($AppExists) {
         "--enable-dapr",
         "--dapr-app-id", $ServiceName,
         "--dapr-app-port", $AppPort,
-        "--env-vars",
-            "QUARKUS_PROFILE=$QuarkusProfile",
-            "QUARKUS_HTTP_PORT=$AppPort",
-            "QUARKUS_LOG_LEVEL=$LogLevel",
-            "DAPR_HTTP_PORT=$DaprHttpPort",
-            "DAPR_GRPC_PORT=$DaprGrpcPort",
-            "DAPR_STATESTORE_NAME=$DaprStatestoreName",
-        "--output", "none"
+        "--env-vars"
     )
+    $CreateArgs += $EnvVars
+    $CreateArgs += @("--output", "none")
     
     if ($IdentityId) {
         $CreateArgs += @("--user-assigned", $IdentityId)
@@ -341,14 +367,24 @@ $AppFqdn = az containerapp show `
 
 Write-Success "Deployment completed!"
 Write-Host ""
-Write-Info "Service FQDN: $AppFqdn"
-Write-Info "Note: Cart service uses internal ingress (accessible only within the Container Apps Environment)"
-Write-Info "Health Check: http://$AppFqdn/readiness"
+Write-Info "Service FQDN: https://$AppFqdn"
+Write-Info "Note: Cart service uses external ingress with JWT validation for /api/* endpoints"
+Write-Info "Public endpoints: /, /health, /health/ready, /metrics, /swagger-ui"
+Write-Info "Protected endpoints: /api/v1/cart/* (requires JWT)"
+Write-Info "Guest endpoints: /api/v1/guest/* (no JWT required)"
 Write-Host ""
 
-# Wait for app to start
-Write-Info "Waiting for app to start (30s)..."
-Start-Sleep -Seconds 30
+# Health check (external endpoint)
+Write-Info "Checking health endpoint..."
+Start-Sleep -Seconds 10
+try {
+    $response = Invoke-WebRequest -Uri "https://$AppFqdn/health" -UseBasicParsing -ErrorAction SilentlyContinue
+    if ($response.StatusCode -eq 200) {
+        Write-Success "Health check passed! (HTTP $($response.StatusCode))"
+    }
+} catch {
+    Write-Warning "Health check returned an error. The app may still be starting."
+}
 
 # Check container app status
 try {
@@ -377,9 +413,15 @@ Write-Host "   ✅ $ServiceName DEPLOYED SUCCESSFULLY" -ForegroundColor Green
 Write-Host "==============================================================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Application:" -ForegroundColor Cyan
-Write-Host "   FQDN:             $AppFqdn"
-Write-Host "   Ingress:          internal (not publicly accessible)"
-Write-Host "   Health:           http://$AppFqdn/readiness"
+Write-Host "   FQDN:             https://$AppFqdn"
+Write-Host "   Ingress:          external (with JWT validation)"
+Write-Host "   Health:           https://$AppFqdn/health"
+Write-Host "   Swagger UI:       https://$AppFqdn/swagger-ui"
+Write-Host ""
+Write-Host "Security:" -ForegroundColor Cyan
+Write-Host "   Public endpoints:    /, /health, /health/*, /metrics, /swagger*"
+Write-Host "   Protected endpoints: /api/v1/cart/* (requires JWT from auth-service)"
+Write-Host "   Guest endpoints:     /api/v1/guest/* (no JWT required)"
 Write-Host ""
 Write-Host "Infrastructure:" -ForegroundColor Cyan
 Write-Host "   Resource Group:   $ResourceGroup"

@@ -304,7 +304,20 @@ if az containerapp show --name "$SERVICE_NAME" --resource-group "$RESOURCE_GROUP
 else
     print_info "Creating container app '$SERVICE_NAME'..."
     
+    # Get JWT_SECRET from Key Vault for JWT validation
+    print_info "Retrieving JWT_SECRET from Key Vault..."
+    JWT_SECRET=$(az keyvault secret show --vault-name "$KEY_VAULT" --name "jwt-secret" --query value -o tsv 2>/dev/null || echo "")
+    if [ -z "$JWT_SECRET" ]; then
+        print_warning "JWT_SECRET not found in Key Vault. JWT validation will be disabled."
+        print_info "To enable JWT validation, add 'jwt-secret' to Key Vault: $KEY_VAULT"
+    else
+        print_success "JWT_SECRET retrieved from Key Vault"
+        ENV_VARS+=("JWT_SECRET=$JWT_SECRET")
+    fi
+    
     # Build the create command
+    # Note: Using external ingress with JWT validation for /api/* endpoints
+    # Public endpoints (/, /health, /health/*, /metrics, /swagger*) remain unauthenticated
     MSYS_NO_PATHCONV=1 az containerapp create \
         --name "$SERVICE_NAME" \
         --resource-group "$RESOURCE_GROUP" \
@@ -314,7 +327,7 @@ else
         --registry-username "$ACR_NAME" \
         --registry-password "$ACR_PASSWORD" \
         --target-port $APP_PORT \
-        --ingress internal \
+        --ingress external \
         --min-replicas 1 \
         --max-replicas 5 \
         --cpu 0.5 \
@@ -343,14 +356,22 @@ APP_FQDN=$(az containerapp show \
 
 print_success "Deployment completed!"
 echo ""
-print_info "Service FQDN: $APP_FQDN"
-print_info "Note: Cart service uses internal ingress (accessible only within the Container Apps Environment)"
-print_info "Health Check: http://$APP_FQDN/readiness"
+print_info "Service FQDN: https://$APP_FQDN"
+print_info "Note: Cart service uses external ingress with JWT validation for /api/* endpoints"
+print_info "Public endpoints: /, /health, /health/ready, /metrics, /swagger-ui"
+print_info "Protected endpoints: /api/v1/cart/* (requires JWT)"
+print_info "Guest endpoints: /api/v1/guest/* (no JWT required)"
 echo ""
 
-# Note: Internal services can't be health-checked from outside
-print_info "Waiting for app to start (30s)..."
-sleep 30
+# Health check (external endpoint)
+print_info "Checking health endpoint..."
+sleep 10
+HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://$APP_FQDN/health" 2>/dev/null || echo "000")
+if [ "$HEALTH_STATUS" = "200" ]; then
+    print_success "Health check passed! (HTTP $HEALTH_STATUS)"
+else
+    print_warning "Health check returned HTTP $HEALTH_STATUS. The app may still be starting."
+fi
 
 # Check container app status
 APP_STATUS=$(az containerapp show \
@@ -375,9 +396,15 @@ echo -e "${GREEN}   ✅ $SERVICE_NAME DEPLOYED SUCCESSFULLY${NC}"
 echo -e "${GREEN}==============================================================================${NC}"
 echo ""
 echo -e "${CYAN}Application:${NC}"
-echo "   FQDN:             $APP_FQDN"
-echo "   Ingress:          internal (not publicly accessible)"
-echo "   Health:           http://$APP_FQDN/readiness"
+echo "   FQDN:             https://$APP_FQDN"
+echo "   Ingress:          external (with JWT validation)"
+echo "   Health:           https://$APP_FQDN/health"
+echo "   Swagger UI:       https://$APP_FQDN/swagger-ui"
+echo ""
+echo -e "${CYAN}Security:${NC}"
+echo "   Public endpoints:    /, /health, /health/*, /metrics, /swagger*"
+echo "   Protected endpoints: /api/v1/cart/* (requires JWT from auth-service)"
+echo "   Guest endpoints:     /api/v1/guest/* (no JWT required)"
 echo ""
 echo -e "${CYAN}Infrastructure:${NC}"
 echo "   Resource Group:   $RESOURCE_GROUP"

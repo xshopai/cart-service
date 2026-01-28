@@ -14,13 +14,13 @@ COPY mvnw mvnw.cmd ./
 COPY .mvn .mvn
 COPY pom.xml ./
 
-# Download dependencies (cached layer)
-RUN ./mvnw dependency:go-offline -B
+# Make Maven wrapper executable and download dependencies (cached layer)
+RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
 
 # Copy source code
 COPY src ./src
 
-# Build the application
+# Build the application (mvnw already has execute permission from previous step)
 RUN ./mvnw package -DskipTests -B
 
 # -----------------------------------------------------------------------------

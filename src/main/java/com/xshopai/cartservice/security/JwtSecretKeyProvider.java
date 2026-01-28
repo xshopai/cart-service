@@ -3,7 +3,9 @@ package com.xshopai.cartservice.security;
 import io.smallrye.jwt.algorithm.SignatureAlgorithm;
 import io.smallrye.jwt.auth.principal.JWTAuthContextInfo;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Alternative;
 import jakarta.enterprise.inject.Produces;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -70,9 +72,12 @@ public class JwtSecretKeyProvider {
     /**
      * Produces custom JWTAuthContextInfo for HS256 validation.
      * This overrides the default configuration to use symmetric key.
+     * Uses @Alternative with high priority to take precedence over default provider.
      */
     @Produces
     @ApplicationScoped
+    @Alternative
+    @Priority(1)
     public JWTAuthContextInfo customJwtContextInfo() {
         JWTAuthContextInfo contextInfo = new JWTAuthContextInfo();
         

@@ -87,10 +87,13 @@ SERVICE_VERSION="1.0.0"
 APP_PORT=8008
 PROJECT_NAME="xshopai"
 
-# Dapr configuration (per PORT_CONFIGURATION.md: cart-service = 3508/50008)
-DAPR_HTTP_PORT=3508
-DAPR_GRPC_PORT=50008
+# Dapr configuration for Azure Container Apps
+# In ACA, Dapr sidecar ALWAYS runs on port 3500 (HTTP) and 50001 (gRPC)
+# (different from local dev where each service has unique ports per PORT_CONFIGURATION.md)
+DAPR_HTTP_PORT=3500
+DAPR_GRPC_PORT=50001
 DAPR_STATESTORE_NAME="statestore"
+DAPR_PUBSUB_NAME="pubsub"
 
 # Get script directory and service directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

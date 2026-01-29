@@ -121,11 +121,11 @@ metadata:
   - name: redisHost
     value: redis-xshopai-aca.redis.cache.windows.net:6380
   - name: redisPassword
-    secretRef: redis-password
+    secretRef: xshopai-redis-password
   - name: enableTLS
     value: 'true'
 secrets:
-  - name: redis-password
+  - name: xshopai-redis-password
     value: <redis-key>
 scopes:
   - cart-service

@@ -104,16 +104,15 @@ SERVICE_DIR="$(dirname "$SCRIPT_DIR")"
 # ============================================================================
 echo -e "${CYAN}Available Environments:${NC}"
 echo "   dev     - Development environment"
-echo "   staging - Staging/QA environment"
 echo "   prod    - Production environment"
 echo ""
 
-read -p "Enter environment (dev/staging/prod) [dev]: " ENVIRONMENT
+read -p "Enter environment (dev/prod) [dev]: " ENVIRONMENT
 ENVIRONMENT="${ENVIRONMENT:-dev}"
 
-if [[ ! "$ENVIRONMENT" =~ ^(dev|staging|prod)$ ]]; then
+if [[ ! "$ENVIRONMENT" =~ ^(dev|prod)$ ]]; then
     print_error "Invalid environment: $ENVIRONMENT"
-    echo "   Valid values: dev, staging, prod"
+    echo "   Valid values: dev, prod"
     exit 1
 fi
 print_success "Environment: $ENVIRONMENT"
@@ -123,10 +122,6 @@ case "$ENVIRONMENT" in
     dev)
         QUARKUS_PROFILE="dev"
         LOG_LEVEL="DEBUG"
-        ;;
-    staging)
-        QUARKUS_PROFILE="staging"
-        LOG_LEVEL="INFO"
         ;;
     prod)
         QUARKUS_PROFILE="prod"
@@ -170,10 +165,14 @@ REDIS_NAME="redis-${PROJECT_NAME}-${ENVIRONMENT}-${SUFFIX}"
 KEY_VAULT="kv-${PROJECT_NAME}-${ENVIRONMENT}-${SUFFIX}"
 MANAGED_IDENTITY="id-${PROJECT_NAME}-${ENVIRONMENT}-${SUFFIX}"
 
+# Container App name follows convention: ca-{service}-{env}-{suffix}
+CONTAINER_APP_NAME="ca-${SERVICE_NAME}-${ENVIRONMENT}-${SUFFIX}"
+
 print_info "Derived resource names:"
 echo "   Resource Group:      $RESOURCE_GROUP"
 echo "   Container Registry:  $ACR_NAME"
 echo "   Container Env:       $CONTAINER_ENV"
+echo "   Container App:       $CONTAINER_APP_NAME"
 echo "   Redis Cache:         $REDIS_NAME"
 echo "   Key Vault:           $KEY_VAULT"
 echo ""
@@ -295,24 +294,24 @@ ENV_VARS+=("DAPR_GRPC_PORT=$DAPR_GRPC_PORT")
 ENV_VARS+=("DAPR_STATESTORE_NAME=$DAPR_STATESTORE_NAME")
 
 # Check if container app exists
-if az containerapp show --name "$SERVICE_NAME" --resource-group "$RESOURCE_GROUP" &> /dev/null; then
-    print_info "Container app '$SERVICE_NAME' exists, updating..."
+if az containerapp show --name "$CONTAINER_APP_NAME" --resource-group "$RESOURCE_GROUP" &> /dev/null; then
+    print_info "Container app '$CONTAINER_APP_NAME' exists, updating..."
     az containerapp update \
-        --name "$SERVICE_NAME" \
+        --name "$CONTAINER_APP_NAME" \
         --resource-group "$RESOURCE_GROUP" \
         --image "$IMAGE_TAG" \
         --set-env-vars "${ENV_VARS[@]}" \
         --output none
     print_success "Container app updated"
 else
-    print_info "Creating container app '$SERVICE_NAME'..."
+    print_info "Creating container app '$CONTAINER_APP_NAME'..."
     
     # Get JWT_SECRET from Key Vault for JWT validation
     print_info "Retrieving JWT_SECRET from Key Vault..."
-    JWT_SECRET=$(az keyvault secret show --vault-name "$KEY_VAULT" --name "jwt-secret" --query value -o tsv 2>/dev/null || echo "")
+    JWT_SECRET=$(az keyvault secret show --vault-name "$KEY_VAULT" --name "xshopai-jwt-secret" --query value -o tsv 2>/dev/null || echo "")
     if [ -z "$JWT_SECRET" ]; then
         print_warning "JWT_SECRET not found in Key Vault. JWT validation will be disabled."
-        print_info "To enable JWT validation, add 'jwt-secret' to Key Vault: $KEY_VAULT"
+        print_info "To enable JWT validation, add 'xshopai-jwt-secret' to Key Vault: $KEY_VAULT"
     else
         print_success "JWT_SECRET retrieved from Key Vault"
         ENV_VARS+=("JWT_SECRET=$JWT_SECRET")
@@ -322,7 +321,8 @@ else
     # Note: Using external ingress with JWT validation for /api/* endpoints
     # Public endpoints (/, /health, /health/*, /metrics, /swagger*) remain unauthenticated
     MSYS_NO_PATHCONV=1 az containerapp create \
-        --name "$SERVICE_NAME" \
+        --name "$CONTAINER_APP_NAME" \
+        --container-name "$SERVICE_NAME" \
         --resource-group "$RESOURCE_GROUP" \
         --environment "$CONTAINER_ENV" \
         --image "$IMAGE_TAG" \
@@ -352,7 +352,7 @@ print_header "Step 3: Verifying Deployment"
 
 # Get app FQDN (internal ingress)
 APP_FQDN=$(az containerapp show \
-    --name "$SERVICE_NAME" \
+    --name "$CONTAINER_APP_NAME" \
     --resource-group "$RESOURCE_GROUP" \
     --query properties.configuration.ingress.fqdn \
     -o tsv)
@@ -378,7 +378,7 @@ fi
 
 # Check container app status
 APP_STATUS=$(az containerapp show \
-    --name "$SERVICE_NAME" \
+    --name "$CONTAINER_APP_NAME" \
     --resource-group "$RESOURCE_GROUP" \
     --query properties.runningStatus \
     -o tsv 2>/dev/null || echo "Unknown")
@@ -423,7 +423,7 @@ echo "   App ID:           $SERVICE_NAME"
 echo "   Other services can invoke via: http://localhost:$DAPR_HTTP_PORT/v1.0/invoke/$SERVICE_NAME/method/{endpoint}"
 echo ""
 echo -e "${CYAN}Useful Commands:${NC}"
-echo -e "   View logs:        ${BLUE}az containerapp logs show --name $SERVICE_NAME --resource-group $RESOURCE_GROUP --follow${NC}"
-echo -e "   View Dapr logs:   ${BLUE}az containerapp logs show --name $SERVICE_NAME --resource-group $RESOURCE_GROUP --container daprd --follow${NC}"
-echo -e "   Delete app:       ${BLUE}az containerapp delete --name $SERVICE_NAME --resource-group $RESOURCE_GROUP --yes${NC}"
+echo -e "   View logs:        ${BLUE}az containerapp logs show --name $CONTAINER_APP_NAME --resource-group $RESOURCE_GROUP --follow${NC}"
+echo -e "   View Dapr logs:   ${BLUE}az containerapp logs show --name $CONTAINER_APP_NAME --resource-group $RESOURCE_GROUP --container daprd --follow${NC}"
+echo -e "   Delete app:       ${BLUE}az containerapp delete --name $CONTAINER_APP_NAME --resource-group $RESOURCE_GROUP --yes${NC}"
 echo ""

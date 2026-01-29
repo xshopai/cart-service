@@ -1161,13 +1161,6 @@ Content-Type: application/json
 - Debug logging enabled
 - Tracing sample rate: 1.0
 
-**Staging**:
-
-- Shared Redis cluster
-- Staging external services
-- Info logging
-- Tracing sample rate: 0.5
-
 **Production**:
 
 - Production Redis cluster (HA setup)

@@ -76,15 +76,14 @@ $ServiceDir = Split-Path -Parent $ScriptDir
 # ============================================================================
 Write-Host "Available Environments:" -ForegroundColor Cyan
 Write-Host "   dev     - Development environment"
-Write-Host "   staging - Staging/QA environment"
 Write-Host "   prod    - Production environment"
 Write-Host ""
 
-$Environment = Read-HostWithDefault -Prompt "Enter environment (dev/staging/prod)" -Default "dev"
+$Environment = Read-HostWithDefault -Prompt "Enter environment (dev/prod)" -Default "dev"
 
-if ($Environment -notmatch '^(dev|staging|prod)$') {
+if ($Environment -notmatch '^(dev|prod)$') {
     Write-Error "Invalid environment: $Environment"
-    Write-Host "   Valid values: dev, staging, prod"
+    Write-Host "   Valid values: dev, prod"
     exit 1
 }
 Write-Success "Environment: $Environment"
@@ -94,10 +93,6 @@ switch ($Environment) {
     "dev" {
         $QuarkusProfile = "dev"
         $LogLevel = "DEBUG"
-    }
-    "staging" {
-        $QuarkusProfile = "staging"
-        $LogLevel = "INFO"
     }
     "prod" {
         $QuarkusProfile = "prod"
@@ -293,16 +288,16 @@ if ($AppExists) {
 } else {
     Write-Info "Creating container app '$ServiceName'..."
     
-    # Get JWT_SECRET from Key Vault for JWT validation
+    # Get JWT_SECRET from Key Vault for JWT validation (using xshopai- prefix)
     Write-Info "Retrieving JWT_SECRET from Key Vault..."
     $JwtSecret = ""
     try {
-        $JwtSecret = az keyvault secret show --vault-name $KeyVault --name "jwt-secret" --query value -o tsv 2>$null
+        $JwtSecret = az keyvault secret show --vault-name $KeyVault --name "xshopai-jwt-secret" --query value -o tsv 2>$null
         if ($JwtSecret) {
             Write-Success "JWT_SECRET retrieved from Key Vault"
         } else {
             Write-Warning "JWT_SECRET not found in Key Vault. JWT validation will be disabled."
-            Write-Info "To enable JWT validation, add 'jwt-secret' to Key Vault: $KeyVault"
+            Write-Info "To enable JWT validation, add 'xshopai-jwt-secret' to Key Vault: $KeyVault"
         }
     } catch {
         Write-Warning "Could not retrieve JWT_SECRET from Key Vault. JWT validation will be disabled."

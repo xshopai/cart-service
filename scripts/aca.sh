@@ -1,328 +1,154 @@
 #!/bin/bash
-
-# ============================================================================
-# Azure Container Apps Deployment Script for Cart Service
-# ============================================================================
-# This script deploys the Cart Service to Azure Container Apps.
-# 
-# PREREQUISITE: Run the infrastructure deployment script first:
-#   cd infrastructure/azure/aca/scripts
-#   ./deploy-infra.sh
-#
-# The infrastructure script creates all shared resources:
-#   - Resource Group, ACR, Container Apps Environment
-#   - Service Bus, Redis, Cosmos DB, MySQL, Key Vault
-#   - Dapr components (pubsub, statestore, secretstore)
-# ============================================================================
-
+# ==============================================================================
+# Azure Container Apps Deployment Script - cart-service
+# ==============================================================================
 set -e
 
-# -----------------------------------------------------------------------------
-# Colors for output
-# -----------------------------------------------------------------------------
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+# Colors
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; CYAN='\033[0;36m'; NC='\033[0m'
+print_header() { echo -e "\n${BLUE}=== $1 ===${NC}\n"; }
+print_success() { echo -e "${GREEN}✓ $1${NC}"; }
+print_warning() { echo -e "${YELLOW}⚠ $1${NC}"; }
+print_error() { echo -e "${RED}✗ $1${NC}"; }
+print_info() { echo -e "${CYAN}ℹ $1${NC}"; }
 
-# Print functions
-print_header() {
-    echo -e "\n${BLUE}==============================================================================${NC}"
-    echo -e "${BLUE}$1${NC}"
-    echo -e "${BLUE}==============================================================================${NC}\n"
-}
-
-print_success() {
-    echo -e "${GREEN}✓ $1${NC}"
-}
-
-print_warning() {
-    echo -e "${YELLOW}⚠ $1${NC}"
-}
-
-print_error() {
-    echo -e "${RED}✗ $1${NC}"
-}
-
-print_info() {
-    echo -e "${CYAN}ℹ $1${NC}"
-}
-
-# ============================================================================
-# Prerequisites Check
-# ============================================================================
-print_header "Checking Prerequisites"
-
-# Check Azure CLI
-if ! command -v az &> /dev/null; then
-    print_error "Azure CLI is not installed. Please install it from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
-    exit 1
-fi
-print_success "Azure CLI is installed"
-
-# Check Docker
-if ! command -v docker &> /dev/null; then
-    print_error "Docker is not installed. Please install Docker first."
-    exit 1
-fi
-print_success "Docker is installed"
-
-# Check if logged into Azure
-if ! az account show &> /dev/null; then
-    print_warning "Not logged into Azure. Initiating login..."
-    az login
-fi
-print_success "Logged into Azure"
-
-# ============================================================================
+# ==============================================================================
 # Configuration
-# ============================================================================
-print_header "Configuration"
-
-# Service-specific configuration
+# ==============================================================================
 SERVICE_NAME="cart-service"
-SERVICE_VERSION="1.0.0"
 APP_PORT=8008
 PROJECT_NAME="xshopai"
 
-# Dapr configuration for Azure Container Apps
-# In ACA, Dapr sidecar ALWAYS runs on port 3500 (HTTP) and 50001 (gRPC)
-# (different from local dev where each service has unique ports per PORT_CONFIGURATION.md)
-DAPR_HTTP_PORT=3500
-DAPR_GRPC_PORT=50001
-DAPR_STATESTORE_NAME="statestore"
-DAPR_PUBSUB_NAME="pubsub"
-
-# Get script directory and service directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_DIR="$(dirname "$SCRIPT_DIR")"
 
-# ============================================================================
-# Environment Selection
-# ============================================================================
-echo -e "${CYAN}Available Environments:${NC}"
-echo "   dev     - Development environment"
-echo "   prod    - Production environment"
-echo ""
+# ==============================================================================
+# Prerequisites
+# ==============================================================================
+print_header "Prerequisites"
+command -v az &>/dev/null || { print_error "Azure CLI not installed"; exit 1; }
+command -v docker &>/dev/null || { print_error "Docker not installed"; exit 1; }
+az account show &>/dev/null || { print_warning "Not logged in, initiating login..."; az login; }
+print_success "Prerequisites OK"
 
+# ==============================================================================
+# Environment Selection
+# ==============================================================================
+print_header "Environment"
 read -p "Enter environment (dev/prod) [dev]: " ENVIRONMENT
 ENVIRONMENT="${ENVIRONMENT:-dev}"
+[[ "$ENVIRONMENT" =~ ^(dev|prod)$ ]] || { print_error "Invalid environment"; exit 1; }
 
-if [[ ! "$ENVIRONMENT" =~ ^(dev|prod)$ ]]; then
-    print_error "Invalid environment: $ENVIRONMENT"
-    echo "   Valid values: dev, prod"
-    exit 1
-fi
-print_success "Environment: $ENVIRONMENT"
+read -p "Enter infrastructure suffix: " SUFFIX
+[[ -n "$SUFFIX" && "$SUFFIX" =~ ^[a-z0-9]{3,6}$ ]] || { print_error "Invalid suffix (3-6 lowercase alphanumeric)"; exit 1; }
+print_success "Environment: $ENVIRONMENT, Suffix: $SUFFIX"
 
-# Set environment-specific variables
+# Set Quarkus-specific environment
 case "$ENVIRONMENT" in
-    dev)
-        QUARKUS_PROFILE="dev"
-        LOG_LEVEL="DEBUG"
-        ;;
-    prod)
-        QUARKUS_PROFILE="prod"
-        LOG_LEVEL="WARN"
-        ;;
+    dev)  QUARKUS_PROFILE="dev"; LOG_LEVEL="DEBUG" ;;
+    prod) QUARKUS_PROFILE="prod"; LOG_LEVEL="WARN" ;;
 esac
 
-# ============================================================================
-# Suffix Configuration
-# ============================================================================
-print_header "Infrastructure Configuration"
-
-echo -e "${CYAN}The suffix was set during infrastructure deployment.${NC}"
-echo "You can find it by running:"
-echo -e "   ${BLUE}az group list --query \"[?starts_with(name, 'rg-xshopai-$ENVIRONMENT')].{Name:name, Suffix:tags.suffix}\" -o table${NC}"
-echo ""
-
-read -p "Enter the infrastructure suffix: " SUFFIX
-
-if [ -z "$SUFFIX" ]; then
-    print_error "Suffix is required. Please run the infrastructure deployment first."
-    exit 1
-fi
-
-# Validate suffix format
-if [[ ! "$SUFFIX" =~ ^[a-z0-9]{3,6}$ ]]; then
-    print_error "Invalid suffix format: $SUFFIX"
-    echo "   Suffix must be 3-6 lowercase alphanumeric characters."
-    exit 1
-fi
-print_success "Using suffix: $SUFFIX"
-
-# ============================================================================
-# Derive Resource Names from Infrastructure
-# ============================================================================
-# These names must match what was created by deploy-infra.sh
+# ==============================================================================
+# Derive Resource Names
+# ==============================================================================
 RESOURCE_GROUP="rg-${PROJECT_NAME}-${ENVIRONMENT}-${SUFFIX}"
 ACR_NAME="${PROJECT_NAME}${ENVIRONMENT}${SUFFIX}"
 CONTAINER_ENV="cae-${PROJECT_NAME}-${ENVIRONMENT}-${SUFFIX}"
-REDIS_NAME="redis-${PROJECT_NAME}-${ENVIRONMENT}-${SUFFIX}"
 KEY_VAULT="kv-${PROJECT_NAME}-${ENVIRONMENT}-${SUFFIX}"
 MANAGED_IDENTITY="id-${PROJECT_NAME}-${ENVIRONMENT}-${SUFFIX}"
+CONTAINER_APP="ca-${SERVICE_NAME}-${ENVIRONMENT}-${SUFFIX}"
+AI_NAME="ai-${PROJECT_NAME}-${ENVIRONMENT}-${SUFFIX}"
 
-# Container App name follows convention: ca-{service}-{env}-{suffix}
-CONTAINER_APP_NAME="ca-${SERVICE_NAME}-${ENVIRONMENT}-${SUFFIX}"
+print_info "Resource Group: $RESOURCE_GROUP"
+print_info "Container App: $CONTAINER_APP"
 
-print_info "Derived resource names:"
-echo "   Resource Group:      $RESOURCE_GROUP"
-echo "   Container Registry:  $ACR_NAME"
-echo "   Container Env:       $CONTAINER_ENV"
-echo "   Container App:       $CONTAINER_APP_NAME"
-echo "   Redis Cache:         $REDIS_NAME"
-echo "   Key Vault:           $KEY_VAULT"
-echo ""
-
-# ============================================================================
-# Verify Infrastructure Exists
-# ============================================================================
+# ==============================================================================
+# Verify Infrastructure
+# ==============================================================================
 print_header "Verifying Infrastructure"
+az group show --name "$RESOURCE_GROUP" &>/dev/null || { print_error "Resource group not found"; exit 1; }
+print_success "Resource Group: $RESOURCE_GROUP"
 
-# Check Resource Group
-if ! az group show --name "$RESOURCE_GROUP" &> /dev/null; then
-    print_error "Resource group '$RESOURCE_GROUP' does not exist."
-    echo ""
-    echo "Please run the infrastructure deployment first:"
-    echo -e "   ${BLUE}cd infrastructure/azure/aca/scripts${NC}"
-    echo -e "   ${BLUE}./deploy-infra.sh${NC}"
-    exit 1
-fi
-print_success "Resource Group exists: $RESOURCE_GROUP"
-
-# Check ACR
-if ! az acr show --name "$ACR_NAME" &> /dev/null; then
-    print_error "Container Registry '$ACR_NAME' does not exist."
-    exit 1
-fi
 ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
-print_success "Container Registry exists: $ACR_LOGIN_SERVER"
+print_success "ACR: $ACR_LOGIN_SERVER"
 
-# Check Container Apps Environment
-if ! az containerapp env show --name "$CONTAINER_ENV" --resource-group "$RESOURCE_GROUP" &> /dev/null; then
-    print_error "Container Apps Environment '$CONTAINER_ENV' does not exist."
-    exit 1
-fi
-print_success "Container Apps Environment exists: $CONTAINER_ENV"
+az containerapp env show --name "$CONTAINER_ENV" --resource-group "$RESOURCE_GROUP" &>/dev/null || { print_error "Container env not found"; exit 1; }
+print_success "Container Env: $CONTAINER_ENV"
 
-# Check Redis Cache
-if ! az redis show --name "$REDIS_NAME" --resource-group "$RESOURCE_GROUP" &> /dev/null; then
-    print_warning "Redis Cache '$REDIS_NAME' does not exist."
-    print_info "Cart service will use the shared Dapr statestore component."
-else
-    print_success "Redis Cache exists: $REDIS_NAME"
-fi
-
-# Get Managed Identity ID
 IDENTITY_ID=$(MSYS_NO_PATHCONV=1 az identity show --name "$MANAGED_IDENTITY" --resource-group "$RESOURCE_GROUP" --query id -o tsv 2>/dev/null || echo "")
-if [ -z "$IDENTITY_ID" ]; then
-    print_warning "Managed Identity not found, will deploy without it"
-else
-    print_success "Managed Identity exists: $MANAGED_IDENTITY"
-fi
+[[ -n "$IDENTITY_ID" ]] && print_success "Managed Identity: $MANAGED_IDENTITY"
 
-# ============================================================================
-# Confirmation
-# ============================================================================
-print_header "Deployment Configuration Summary"
+# Get App Insights connection string
+AI_CONNECTION_STRING=$(az monitor app-insights component show --app "$AI_NAME" --resource-group "$RESOURCE_GROUP" --query connectionString -o tsv 2>/dev/null || echo "")
+[[ -n "$AI_CONNECTION_STRING" ]] && print_success "App Insights found"
 
-echo -e "${CYAN}Environment:${NC}          $ENVIRONMENT"
-echo -e "${CYAN}Suffix:${NC}               $SUFFIX"
-echo -e "${CYAN}Resource Group:${NC}       $RESOURCE_GROUP"
-echo -e "${CYAN}Container Registry:${NC}   $ACR_LOGIN_SERVER"
-echo -e "${CYAN}Container Env:${NC}        $CONTAINER_ENV"
-echo -e "${CYAN}Redis Cache:${NC}          $REDIS_NAME"
-echo ""
-echo -e "${CYAN}Service Configuration:${NC}"
-echo -e "   Service Name:      $SERVICE_NAME"
-echo -e "   Service Version:   $SERVICE_VERSION"
-echo -e "   App Port:          $APP_PORT"
-echo -e "   Quarkus Profile:   $QUARKUS_PROFILE"
-echo -e "   LOG_LEVEL:         $LOG_LEVEL"
-echo -e "   Dapr HTTP Port:    $DAPR_HTTP_PORT"
-echo -e "   Dapr Statestore:   $DAPR_STATESTORE_NAME"
-echo ""
+# ==============================================================================
+# Retrieve Secrets from Key Vault
+# ==============================================================================
+print_header "Retrieving Secrets"
 
-read -p "Do you want to proceed with deployment? (Y/n): " CONFIRM
-CONFIRM=${CONFIRM:-Y}
-if [[ "$CONFIRM" =~ ^[Nn]$ ]]; then
-    print_warning "Deployment cancelled by user"
-    exit 0
-fi
+JWT_SECRET=$(az keyvault secret show --vault-name "$KEY_VAULT" --name "jwt-secret" --query value -o tsv 2>/dev/null || echo "")
+[[ -n "$JWT_SECRET" ]] && print_success "JWT_SECRET retrieved" || print_warning "JWT_SECRET not found"
 
-# ============================================================================
-# Step 1: Build and Push Container Image
-# ============================================================================
-print_header "Step 1: Building and Pushing Container Image"
+SERVICE_PRODUCT_TOKEN=$(az keyvault secret show --vault-name "$KEY_VAULT" --name "service-product-token" --query value -o tsv 2>/dev/null || echo "")
+[[ -n "$SERVICE_PRODUCT_TOKEN" ]] && print_success "SERVICE_PRODUCT_TOKEN retrieved" || print_warning "SERVICE_PRODUCT_TOKEN not found"
 
-# Login to ACR
-print_info "Logging into ACR..."
+SERVICE_INVENTORY_TOKEN=$(az keyvault secret show --vault-name "$KEY_VAULT" --name "service-inventory-token" --query value -o tsv 2>/dev/null || echo "")
+[[ -n "$SERVICE_INVENTORY_TOKEN" ]] && print_success "SERVICE_INVENTORY_TOKEN retrieved" || print_warning "SERVICE_INVENTORY_TOKEN not found"
+
+SERVICE_WEBBFF_TOKEN=$(az keyvault secret show --vault-name "$KEY_VAULT" --name "service-webbff-token" --query value -o tsv 2>/dev/null || echo "")
+[[ -n "$SERVICE_WEBBFF_TOKEN" ]] && print_success "SERVICE_WEBBFF_TOKEN retrieved" || print_warning "SERVICE_WEBBFF_TOKEN not found"
+
+# ==============================================================================
+# Build and Push Image
+# ==============================================================================
+print_header "Building and Pushing Image"
 az acr login --name "$ACR_NAME"
-print_success "Logged into ACR"
-
-# Navigate to service directory
 cd "$SERVICE_DIR"
 
-# Build Docker image (using production target)
-print_info "Building Docker image (this may take a few minutes for Java/Quarkus)..."
+print_info "Building Docker image (Java/Quarkus build takes a few minutes)..."
 docker build --target production -t "$SERVICE_NAME:latest" .
-print_success "Docker image built"
+print_success "Image built"
 
-# Tag and push
 IMAGE_TAG="$ACR_LOGIN_SERVER/$SERVICE_NAME:latest"
 docker tag "$SERVICE_NAME:latest" "$IMAGE_TAG"
-print_info "Pushing image to ACR..."
 docker push "$IMAGE_TAG"
 print_success "Image pushed: $IMAGE_TAG"
 
-# ============================================================================
-# Step 2: Deploy Container App
-# ============================================================================
-print_header "Step 2: Deploying Container App"
-
-# Get ACR credentials
+# ==============================================================================
+# Deploy Container App
+# ==============================================================================
+print_header "Deploying Container App"
 ACR_PASSWORD=$(az acr credential show --name "$ACR_NAME" --query "passwords[0].value" -o tsv)
 
-# Build environment variables
-ENV_VARS=("QUARKUS_PROFILE=$QUARKUS_PROFILE")
-ENV_VARS+=("QUARKUS_HTTP_PORT=$APP_PORT")
-ENV_VARS+=("QUARKUS_LOG_LEVEL=$LOG_LEVEL")
-ENV_VARS+=("DAPR_HTTP_PORT=$DAPR_HTTP_PORT")
-ENV_VARS+=("DAPR_GRPC_PORT=$DAPR_GRPC_PORT")
-ENV_VARS+=("DAPR_STATESTORE_NAME=$DAPR_STATESTORE_NAME")
+# Build environment variables array
+ENV_VARS=(
+    "QUARKUS_PROFILE=$QUARKUS_PROFILE"
+    "QUARKUS_HTTP_PORT=$APP_PORT"
+    "QUARKUS_LOG_LEVEL=$LOG_LEVEL"
+)
+[[ -n "$JWT_SECRET" ]] && ENV_VARS+=("JWT_SECRET=$JWT_SECRET")
+[[ -n "$SERVICE_PRODUCT_TOKEN" ]] && ENV_VARS+=("SERVICE_PRODUCT_TOKEN=$SERVICE_PRODUCT_TOKEN")
+[[ -n "$SERVICE_INVENTORY_TOKEN" ]] && ENV_VARS+=("SERVICE_INVENTORY_TOKEN=$SERVICE_INVENTORY_TOKEN")
+[[ -n "$SERVICE_WEBBFF_TOKEN" ]] && ENV_VARS+=("SERVICE_WEBBFF_TOKEN=$SERVICE_WEBBFF_TOKEN")
+[[ -n "$AI_CONNECTION_STRING" ]] && ENV_VARS+=("APPLICATIONINSIGHTS_CONNECTION_STRING=$AI_CONNECTION_STRING")
+[[ -n "$AI_CONNECTION_STRING" ]] && ENV_VARS+=("OTEL_EXPORTER_OTLP_ENDPOINT=")
+[[ -n "$AI_CONNECTION_STRING" ]] && ENV_VARS+=("OTEL_TRACES_EXPORTER=none")
 
-# Check if container app exists
-if az containerapp show --name "$CONTAINER_APP_NAME" --resource-group "$RESOURCE_GROUP" &> /dev/null; then
-    print_info "Container app '$CONTAINER_APP_NAME' exists, updating..."
+if az containerapp show --name "$CONTAINER_APP" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+    print_info "Updating existing container app..."
     az containerapp update \
-        --name "$CONTAINER_APP_NAME" \
+        --name "$CONTAINER_APP" \
         --resource-group "$RESOURCE_GROUP" \
         --image "$IMAGE_TAG" \
         --set-env-vars "${ENV_VARS[@]}" \
         --output none
     print_success "Container app updated"
 else
-    print_info "Creating container app '$CONTAINER_APP_NAME'..."
-    
-    # Get JWT_SECRET from Key Vault for JWT validation
-    print_info "Retrieving JWT_SECRET from Key Vault..."
-    JWT_SECRET=$(az keyvault secret show --vault-name "$KEY_VAULT" --name "xshopai-jwt-secret" --query value -o tsv 2>/dev/null || echo "")
-    if [ -z "$JWT_SECRET" ]; then
-        print_warning "JWT_SECRET not found in Key Vault. JWT validation will be disabled."
-        print_info "To enable JWT validation, add 'xshopai-jwt-secret' to Key Vault: $KEY_VAULT"
-    else
-        print_success "JWT_SECRET retrieved from Key Vault"
-        ENV_VARS+=("JWT_SECRET=$JWT_SECRET")
-    fi
-    
-    # Build the create command
-    # Note: Using external ingress with JWT validation for /api/* endpoints
-    # Public endpoints (/, /health, /health/*, /metrics, /swagger*) remain unauthenticated
+    print_info "Creating container app..."
     MSYS_NO_PATHCONV=1 az containerapp create \
-        --name "$CONTAINER_APP_NAME" \
+        --name "$CONTAINER_APP" \
         --container-name "$SERVICE_NAME" \
         --resource-group "$RESOURCE_GROUP" \
         --environment "$CONTAINER_ENV" \
@@ -332,7 +158,7 @@ else
         --registry-password "$ACR_PASSWORD" \
         --target-port $APP_PORT \
         --ingress external \
-        --min-replicas 2 \
+        --min-replicas 1 \
         --max-replicas 10 \
         --cpu 1.0 \
         --memory 2.0Gi \
@@ -341,91 +167,43 @@ else
         --dapr-app-port $APP_PORT \
         --env-vars "${ENV_VARS[@]}" \
         ${IDENTITY_ID:+--user-assigned "$IDENTITY_ID"} \
-        --tags "project=$PROJECT_NAME" "environment=$ENVIRONMENT" "suffix=$SUFFIX" "service=$SERVICE_NAME" \
+        --tags "project=$PROJECT_NAME" "environment=$ENVIRONMENT" "service=$SERVICE_NAME" \
         --output none
-    
     print_success "Container app created"
 fi
 
-# ============================================================================
-# Step 3: Verify Deployment
-# ============================================================================
-print_header "Step 3: Verifying Deployment"
+# ==============================================================================
+# Verify Deployment
+# ==============================================================================
+print_header "Verifying Deployment"
+APP_FQDN=$(az containerapp show --name "$CONTAINER_APP" --resource-group "$RESOURCE_GROUP" --query properties.configuration.ingress.fqdn -o tsv)
+print_success "FQDN: https://$APP_FQDN"
 
-# Get app FQDN (internal ingress)
-APP_FQDN=$(az containerapp show \
-    --name "$CONTAINER_APP_NAME" \
-    --resource-group "$RESOURCE_GROUP" \
-    --query properties.configuration.ingress.fqdn \
-    -o tsv)
+print_info "Waiting for app to start..."
+sleep 15
 
-print_success "Deployment completed!"
-echo ""
-print_info "Service FQDN: https://$APP_FQDN"
-print_info "Note: Cart service uses external ingress with JWT validation for /api/* endpoints"
-print_info "Public endpoints: /, /health, /health/ready, /metrics, /swagger-ui"
-print_info "Protected endpoints: /api/v1/cart/* (requires JWT)"
-print_info "Guest endpoints: /api/v1/guest/* (no JWT required)"
-echo ""
-
-# Health check (external endpoint)
-print_info "Checking health endpoint..."
-sleep 10
 HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://$APP_FQDN/health" 2>/dev/null || echo "000")
 if [ "$HEALTH_STATUS" = "200" ]; then
-    print_success "Health check passed! (HTTP $HEALTH_STATUS)"
+    print_success "Health check passed (HTTP $HEALTH_STATUS)"
 else
-    print_warning "Health check returned HTTP $HEALTH_STATUS. The app may still be starting."
+    print_warning "Health check returned HTTP $HEALTH_STATUS (app may still be starting)"
 fi
 
-# Check container app status
-APP_STATUS=$(az containerapp show \
-    --name "$CONTAINER_APP_NAME" \
-    --resource-group "$RESOURCE_GROUP" \
-    --query properties.runningStatus \
-    -o tsv 2>/dev/null || echo "Unknown")
-
-if [ "$APP_STATUS" = "Running" ]; then
-    print_success "Container app is running!"
-else
-    print_warning "Container app status: $APP_STATUS. The app may still be starting."
-fi
-
-# ============================================================================
+# ==============================================================================
 # Summary
-# ============================================================================
+# ==============================================================================
 print_header "Deployment Summary"
-
-echo -e "${GREEN}==============================================================================${NC}"
-echo -e "${GREEN}   ✅ $SERVICE_NAME DEPLOYED SUCCESSFULLY${NC}"
-echo -e "${GREEN}==============================================================================${NC}"
+echo -e "${GREEN}✅ $SERVICE_NAME deployed successfully${NC}"
 echo ""
-echo -e "${CYAN}Application:${NC}"
-echo "   FQDN:             https://$APP_FQDN"
-echo "   Ingress:          external (with JWT validation)"
-echo "   Health:           https://$APP_FQDN/health"
-echo "   Swagger UI:       https://$APP_FQDN/swagger-ui"
+echo -e "${CYAN}Endpoints:${NC}"
+echo "   Health:     https://$APP_FQDN/health"
+echo "   Swagger:    https://$APP_FQDN/swagger-ui"
+echo "   Cart API:   https://$APP_FQDN/api/v1/cart (JWT required)"
+echo "   Guest API:  https://$APP_FQDN/api/v1/guest (public)"
 echo ""
-echo -e "${CYAN}Security:${NC}"
-echo "   Public endpoints:    /, /health, /health/*, /metrics, /swagger*"
-echo "   Protected endpoints: /api/v1/cart/* (requires JWT from auth-service)"
-echo "   Guest endpoints:     /api/v1/guest/* (no JWT required)"
+echo -e "${CYAN}Dapr:${NC}"
+echo "   App ID:     $SERVICE_NAME"
+echo "   Statestore: statestore (Redis-backed)"
 echo ""
-echo -e "${CYAN}Infrastructure:${NC}"
-echo "   Resource Group:   $RESOURCE_GROUP"
-echo "   Environment:      $CONTAINER_ENV"
-echo "   Registry:         $ACR_LOGIN_SERVER"
-echo ""
-echo -e "${CYAN}State Management:${NC}"
-echo "   Dapr Statestore:  $DAPR_STATESTORE_NAME (Redis-backed)"
-echo "   Redis Cache:      $REDIS_NAME"
-echo ""
-echo -e "${CYAN}Dapr Service Invocation:${NC}"
-echo "   App ID:           $SERVICE_NAME"
-echo "   Other services can invoke via: http://localhost:$DAPR_HTTP_PORT/v1.0/invoke/$SERVICE_NAME/method/{endpoint}"
-echo ""
-echo -e "${CYAN}Useful Commands:${NC}"
-echo -e "   View logs:        ${BLUE}az containerapp logs show --name $CONTAINER_APP_NAME --resource-group $RESOURCE_GROUP --follow${NC}"
-echo -e "   View Dapr logs:   ${BLUE}az containerapp logs show --name $CONTAINER_APP_NAME --resource-group $RESOURCE_GROUP --container daprd --follow${NC}"
-echo -e "   Delete app:       ${BLUE}az containerapp delete --name $CONTAINER_APP_NAME --resource-group $RESOURCE_GROUP --yes${NC}"
-echo ""
+echo -e "${CYAN}Commands:${NC}"
+echo "   Logs: az containerapp logs show --name $CONTAINER_APP --resource-group $RESOURCE_GROUP --follow"

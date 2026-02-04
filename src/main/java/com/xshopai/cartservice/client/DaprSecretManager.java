@@ -51,12 +51,12 @@ public class DaprSecretManager {
     }
 
     /**
-     * Get a specific secret by key with environment variable priority.
+     * Get a specific secret by key with Dapr secret store priority.
      * 
      * Priority:
-     * 1. Environment variable (UPPER_SNAKE_CASE, e.g., JWT_SECRET)
-     * 2. MicroProfile Config property (e.g., jwt.secret)
-     * 3. Dapr secret store (local development)
+     * 1. Dapr secret store (.dapr/secrets.json when running with Dapr)
+     * 2. Environment variable (UPPER_SNAKE_CASE from .env file when running without Dapr)
+     * 3. MicroProfile Config property (fallback)
      * 
      * @param key The secret key to retrieve (e.g., "jwt:secret" or "JWT_SECRET")
      * @return The secret value, or null if not found
@@ -65,14 +65,31 @@ public class DaprSecretManager {
         // Convert key to environment variable format (UPPER_SNAKE_CASE)
         String envKey = key.replace(":", "_").replace("-", "_").replace(".", "_").toUpperCase();
         
-        // 1. Try environment variable first (Azure deployment)
+        // 1. Try Dapr secret store first
+        try {
+            logger.debugf("Retrieving secret from Dapr: %s", key);
+            
+            Map<String, String> secret = daprClient.getSecret(secretStoreName, key).block();
+            
+            if (secret != null && !secret.isEmpty()) {
+                String value = secret.values().stream().findFirst().orElse(null);
+                if (value != null && !value.isEmpty()) {
+                    logger.debugf("Secret '%s' loaded from Dapr secret store", key);
+                    return value;
+                }
+            }
+        } catch (Exception e) {
+            logger.debugf("Dapr lookup failed for '%s', trying ENV: %s", key, e.getMessage());
+        }
+        
+        // 2. Fallback to environment variable (from .env file)
         String envValue = System.getenv(envKey);
         if (envValue != null && !envValue.isEmpty()) {
             logger.debugf("Secret '%s' loaded from environment variable: %s", key, envKey);
             return envValue;
         }
         
-        // 2. Try MicroProfile Config property
+        // 3. Fallback to MicroProfile Config property
         try {
             Optional<String> configValue = ConfigProvider.getConfig()
                 .getOptionalValue(key.replace(":", "."), String.class);
@@ -84,24 +101,7 @@ public class DaprSecretManager {
             logger.debugf("Config lookup failed for '%s': %s", key, e.getMessage());
         }
         
-        // 3. Fallback to Dapr secret store (local development)
-        try {
-            logger.debugf("Retrieving secret from Dapr: %s", key);
-            
-            Map<String, String> secret = daprClient.getSecret(secretStoreName, key).block();
-            
-            if (secret != null && !secret.isEmpty()) {
-                String value = secret.values().stream().findFirst().orElse(null);
-                if (value != null) {
-                    logger.debugf("Secret '%s' loaded from Dapr", key);
-                    return value;
-                }
-            }
-        } catch (Exception e) {
-            logger.debugf("Dapr lookup failed for '%s': %s", key, e.getMessage());
-        }
-        
-        logger.warnf("Secret not found: %s (tried env: %s, config, and Dapr)", key, envKey);
+        logger.warnf("Secret not found: %s (tried Dapr, env: %s, and config)", key, envKey);
         return null;
     }
 

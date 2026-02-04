@@ -9,14 +9,10 @@ spec:
     - name: redisHost
       value: localhost:6379
     - name: redisPassword
-      secretKeyRef:
-        name: REDIS_PASSWORD
-        key: REDIS_PASSWORD
+      value: ''
     - name: actorStateStore
       value: 'false'
     - name: keyPrefix
       value: 'cart'
     - name: enableTLS
       value: 'false'
-auth:
-  secretStore: secretstore

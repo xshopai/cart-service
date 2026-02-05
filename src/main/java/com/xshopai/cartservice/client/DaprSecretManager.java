@@ -29,13 +29,23 @@ public class DaprSecretManager {
 
     @ConfigProperty(name = "dapr.secret-store", defaultValue = "secretstore")
     String secretStoreName;
+    
+    @ConfigProperty(name = "messaging.provider", defaultValue = "dapr")
+    String messagingProvider;
 
     private DaprClient daprClient;
+    private boolean daprEnabled;
 
     @PostConstruct
     void init() {
-        this.daprClient = new DaprClientBuilder().build();
-        logger.infof("Dapr Secret Manager initialized with store: %s", secretStoreName);
+        this.daprEnabled = "dapr".equalsIgnoreCase(messagingProvider);
+        
+        if (daprEnabled) {
+            this.daprClient = new DaprClientBuilder().build();
+            logger.infof("Dapr Secret Manager initialized with store: %s", secretStoreName);
+        } else {
+            logger.infof("Dapr Secret Manager initialized (Dapr disabled - using env vars only)");
+        }
     }
 
     @PreDestroy
@@ -65,21 +75,23 @@ public class DaprSecretManager {
         // Convert key to environment variable format (UPPER_SNAKE_CASE)
         String envKey = key.replace(":", "_").replace("-", "_").replace(".", "_").toUpperCase();
         
-        // 1. Try Dapr secret store first
-        try {
-            logger.debugf("Retrieving secret from Dapr: %s", key);
-            
-            Map<String, String> secret = daprClient.getSecret(secretStoreName, key).block();
-            
-            if (secret != null && !secret.isEmpty()) {
-                String value = secret.values().stream().findFirst().orElse(null);
-                if (value != null && !value.isEmpty()) {
-                    logger.debugf("Secret '%s' loaded from Dapr secret store", key);
-                    return value;
+        // 1. Try Dapr secret store first (only if enabled)
+        if (daprEnabled && daprClient != null) {
+            try {
+                logger.debugf("Retrieving secret from Dapr: %s", key);
+                
+                Map<String, String> secret = daprClient.getSecret(secretStoreName, key).block();
+                
+                if (secret != null && !secret.isEmpty()) {
+                    String value = secret.values().stream().findFirst().orElse(null);
+                    if (value != null && !value.isEmpty()) {
+                        logger.debugf("Secret '%s' loaded from Dapr secret store", key);
+                        return value;
+                    }
                 }
+            } catch (Exception e) {
+                logger.debugf("Dapr lookup failed for '%s', trying ENV: %s", key, e.getMessage());
             }
-        } catch (Exception e) {
-            logger.debugf("Dapr lookup failed for '%s', trying ENV: %s", key, e.getMessage());
         }
         
         // 2. Fallback to environment variable (from .env file)

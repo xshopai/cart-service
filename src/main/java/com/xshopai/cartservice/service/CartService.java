@@ -73,14 +73,14 @@ public class CartService {
                 throw new CartException("Product is not available");
             }
             
-            // Generate variant SKU
+            // Generate variant SKU (matches the variant SKUs in inventory)
             String variantSku = generateVariantSku(productInfo.getSku(), 
                 request.getSelectedColor(), request.getSelectedSize());
             
             logger.infof("Generated variant SKU: %s (base: %s, color: %s, size: %s)", 
                 variantSku, productInfo.getSku(), request.getSelectedColor(), request.getSelectedSize());
             
-            // Check inventory (non-blocking, log warning if fails)
+            // Check inventory using variant SKU (non-blocking, log warning if fails)
             try {
                 logger.infof("Checking inventory availability: sku=%s, quantity=%d", 
                     variantSku, request.getQuantity());

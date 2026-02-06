@@ -52,9 +52,9 @@ USER cartuser
 # Expose port
 EXPOSE 8008
 
-# Health check (using wget which is smaller than curl)
+# Health check (using wget GET request to /health/live)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8008/readiness || exit 1
+    CMD wget -qO- http://localhost:8008/health/live > /dev/null || exit 1
 
 # Run the Quarkus application
 CMD ["java", "-jar", "quarkus-run.jar"]

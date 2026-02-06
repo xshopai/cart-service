@@ -48,20 +48,6 @@ public class RootResource {
     }
     
     @GET
-    @Path("/health")
-    public Response health() {
-        Map<String, Object> health = new HashMap<>();
-        health.put("status", "UP");
-        health.put("service", applicationName);
-        health.put("timestamp", Instant.now());
-        health.put("checks", Map.of(
-            "cart-service", "UP",
-            "dapr-sidecar", "UP"
-        ));
-        return Response.ok(health).build();
-    }
-    
-    @GET
     @Path("/health/ready")
     public Response healthReady() {
         Map<String, Object> readiness = new HashMap<>();
@@ -83,30 +69,6 @@ public class RootResource {
         liveness.put("service", applicationName);
         liveness.put("timestamp", Instant.now());
         return Response.ok(liveness).build();
-    }
-    
-    @GET
-    @Path("/liveness")
-    public Response liveness() {
-        Map<String, Object> liveness = new HashMap<>();
-        liveness.put("status", "UP");
-        liveness.put("service", applicationName);
-        liveness.put("timestamp", Instant.now());
-        return Response.ok(liveness).build();
-    }
-    
-    @GET
-    @Path("/readiness")
-    public Response readiness() {
-        Map<String, Object> readiness = new HashMap<>();
-        readiness.put("status", "UP");
-        readiness.put("service", applicationName);
-        readiness.put("timestamp", Instant.now());
-        readiness.put("checks", Map.of(
-            "dapr-state-store", "UP",
-            "service", "UP"
-        ));
-        return Response.ok(readiness).build();
     }
     
     @GET

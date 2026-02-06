@@ -1,11 +1,7 @@
 package com.xshopai.cartservice.repository;
 
 import com.xshopai.cartservice.model.Cart;
-import io.dapr.client.DaprClient;
-import io.dapr.client.DaprClientBuilder;
-import io.dapr.client.domain.State;
 import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -14,117 +10,89 @@ import org.jboss.logging.Logger;
 import java.time.Duration;
 import java.util.Optional;
 
+/**
+ * Cart repository that delegates to the appropriate storage provider.
+ * Uses Dapr when available/configured, falls back to direct Redis.
+ */
 @ApplicationScoped
 public class CartRepository {
     
     @Inject
     Logger logger;
     
-    @ConfigProperty(name = "dapr.state-store", defaultValue = "statestore")
-    String stateStoreName;
+    @Inject
+    DaprCartStorageProvider daprProvider;
     
-    private DaprClient daprClient;
+    @Inject
+    RedisCartStorageProvider redisProvider;
     
-    private static final String CART_PREFIX = "cart:";
-    private static final String LOCK_PREFIX = "lock:cart:";
+    @ConfigProperty(name = "cart.storage.provider", defaultValue = "auto")
+    String configuredProvider;
+    
+    private CartStorageProvider activeProvider;
     
     @PostConstruct
     void init() {
-        // Note: Dapr SDK's DefaultObjectSerializer creates its own ObjectMapper
-        // We'll use the default serializer which should work with JSR310 module on classpath
-        this.daprClient = new DaprClientBuilder().build();
-        logger.info("Dapr client initialized for state store: " + stateStoreName);
-    }
-    
-    @PreDestroy
-    void cleanup() {
-        try {
-            if (daprClient != null) {
-                daprClient.close();
+        logger.infof("Configured storage provider: %s", configuredProvider);
+        
+        if ("dapr".equalsIgnoreCase(configuredProvider)) {
+            // Explicitly configured to use Dapr
+            daprProvider.initialize();
+            if (daprProvider.isAvailable()) {
+                activeProvider = daprProvider;
+                logger.info("Using Dapr storage provider (explicitly configured)");
+            } else {
+                logger.warn("Dapr configured but not available, falling back to Redis");
+                redisProvider.initialize();
+                activeProvider = redisProvider;
             }
-        } catch (Exception e) {
-            logger.error("Error closing Dapr client", e);
+        } else if ("redis".equalsIgnoreCase(configuredProvider)) {
+            // Explicitly configured to use Redis
+            redisProvider.initialize();
+            activeProvider = redisProvider;
+            logger.info("Using Redis storage provider (explicitly configured)");
+        } else {
+            // Auto-detect: try Dapr first, fall back to Redis
+            logger.info("Auto-detecting storage provider...");
+            daprProvider.initialize();
+            if (daprProvider.isAvailable()) {
+                activeProvider = daprProvider;
+                logger.info("Using Dapr storage provider (auto-detected)");
+            } else {
+                logger.info("Dapr not available, using Redis storage provider");
+                redisProvider.initialize();
+                activeProvider = redisProvider;
+            }
         }
+        
+        if (activeProvider == null || !activeProvider.isAvailable()) {
+            throw new IllegalStateException("No storage provider available! Check Redis/Dapr configuration.");
+        }
+        
+        logger.infof("Cart storage initialized with provider: %s", activeProvider.getProviderName());
     }
     
     public Optional<Cart> findByUserId(String userId) {
-        try {
-            State<Cart> state = daprClient.getState(
-                stateStoreName, 
-                CART_PREFIX + userId, 
-                Cart.class
-            ).block();
-            
-            if (state != null && state.getValue() != null) {
-                return Optional.of(state.getValue());
-            }
-            return Optional.empty();
-        } catch (Exception e) {
-            logger.error("Error finding cart for user: " + userId, e);
-            return Optional.empty();
-        }
+        return activeProvider.findByUserId(userId);
     }
     
     public void save(Cart cart, Duration ttl) {
-        try {
-            // Save cart object directly - Dapr SDK handles JSON serialization
-            daprClient.saveState(
-                stateStoreName,
-                CART_PREFIX + cart.getUserId(),
-                cart
-            ).block();
-            
-            logger.debugf("Saved cart for user: %s", cart.getUserId());
-        } catch (Exception e) {
-            logger.error("Error saving cart for user: " + cart.getUserId(), e);
-            throw new RuntimeException("Failed to save cart", e);
-        }
+        activeProvider.save(cart, ttl);
     }
     
     public void delete(String userId) {
-        try {
-            daprClient.deleteState(stateStoreName, CART_PREFIX + userId).block();
-            logger.debugf("Deleted cart for user: %s", userId);
-        } catch (Exception e) {
-            logger.error("Error deleting cart for user: " + userId, e);
-        }
+        activeProvider.delete(userId);
     }
     
     public boolean acquireLock(String userId, Duration lockDuration) {
-        try {
-            // Check if lock already exists
-            State<String> existingLock = daprClient.getState(
-                stateStoreName,
-                LOCK_PREFIX + userId,
-                String.class
-            ).block();
-            
-            if (existingLock != null && existingLock.getValue() != null && !existingLock.getValue().isEmpty()) {
-                logger.debugf("Failed to acquire lock for user: %s - already locked", userId);
-                return false;
-            }
-            
-            // Acquire lock (note: TTL metadata not supported in Dapr SDK 1.11.0)
-            daprClient.saveState(
-                stateStoreName,
-                LOCK_PREFIX + userId,
-                "locked"
-            ).block();
-            
-            logger.debugf("Acquired lock for user: %s", userId);
-            return true;
-        } catch (Exception e) {
-            logger.error("Error acquiring lock for user: " + userId, e);
-            return false;
-        }
+        return activeProvider.acquireLock(userId, lockDuration);
     }
     
     public void releaseLock(String userId) {
-        try {
-            daprClient.deleteState(stateStoreName, LOCK_PREFIX + userId).block();
-            logger.debugf("Released lock for user: %s", userId);
-        } catch (Exception e) {
-            logger.error("Error releasing lock for user: " + userId, e);
-        }
+        activeProvider.releaseLock(userId);
+    }
+    
+    public String getActiveProviderName() {
+        return activeProvider != null ? activeProvider.getProviderName() : "none";
     }
 }

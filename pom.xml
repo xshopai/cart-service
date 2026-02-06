@@ -44,11 +44,11 @@
             <artifactId>quarkus-resteasy-reactive-jackson</artifactId>
         </dependency>
         
-        <!-- Redis - Not needed, using Dapr state store -->
-        <!-- <dependency>
+        <!-- Redis - Used when Dapr is not available -->
+        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-redis-client</artifactId>
-        </dependency> -->
+        </dependency>
         
         <!-- JWT -->
         <dependency>

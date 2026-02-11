@@ -49,8 +49,9 @@ public class DaprMessagingProvider implements MessagingProvider {
         }
         
         try {
+            // Set gRPC port via system property (DaprClientBuilder 1.11 uses env/property)
+            System.setProperty("dapr.grpc.port", String.valueOf(daprGrpcPort));
             daprClient = new DaprClientBuilder()
-                .withGrpcPort(daprGrpcPort)
                 .build();
             
             initialized = true;

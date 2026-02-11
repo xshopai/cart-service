@@ -111,7 +111,7 @@ public class CartEventPublisher {
             
             // Cart summary after removal
             eventData.put("cartItemCount", cart.getItems().size());
-            eventData.put("cartTotalAmount", cart.getTotalAmount());
+            eventData.put("cartTotalAmount", cart.getTotalPrice());
             
             boolean success = messagingProvider.publishEvent(
                 "cart.item.removed",
@@ -190,7 +190,7 @@ public class CartEventPublisher {
             eventData.put("userId", cart.getUserId());
             eventData.put("cartId", cart.getUserId());
             eventData.put("itemCount", cart.getItems().size());
-            eventData.put("totalAmount", cart.getTotalAmount());
+            eventData.put("totalAmount", cart.getTotalPrice());
             eventData.put("timestamp", System.currentTimeMillis());
             
             // Include item SKUs for inventory reservation
@@ -213,7 +213,7 @@ public class CartEventPublisher {
             
             if (success) {
                 logger.infof("Published cart.checkout.started event: userId=%s, items=%d, total=%.2f, correlationId=%s",
-                    cart.getUserId(), cart.getItems().size(), cart.getTotalAmount(), correlationId);
+                    cart.getUserId(), cart.getItems().size(), cart.getTotalPrice(), correlationId);
             }
         } catch (Exception e) {
             logger.errorf("Error publishing cart.checkout.started event: %s", e.getMessage());
@@ -249,7 +249,7 @@ public class CartEventPublisher {
         
         // Cart summary
         eventData.put("cartItemCount", cart.getItems().size());
-        eventData.put("cartTotalAmount", cart.getTotalAmount());
+        eventData.put("cartTotalAmount", cart.getTotalPrice());
         
         // Timestamp
         eventData.put("timestamp", System.currentTimeMillis());

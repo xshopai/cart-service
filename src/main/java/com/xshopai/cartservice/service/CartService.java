@@ -177,25 +177,9 @@ public class CartService {
             // Publish cart.item.updated event
             try {
                 eventPublisher.publishItemUpdated(cart, sku, oldQuantity, quantity, generateCorrelationId());
-            
-            // Find item before removal for event data
-            CartItem removedItem = cart.getItems().stream()
-                .filter(item -> item.getSku().equals(sku))
-                .findFirst()
-                .orElse(null);
-            
-            cart.removeItem(sku);
-            cartRepository.save(cart, parseDuration(defaultTtlConfig));
-            
-            logger.infof("Item removed from cart: userId=%s, sku=%s", userId, sku);
-            
-            // Publish cart.item.removed event
-            try {
-                eventPublisher.publishItemRemoved(cart, sku, removedItem, generateCorrelationId());
             } catch (Exception e) {
-                logger.warnf("Failed to publish cart.item.removed event: %s", e.getMessage());
+                logger.warnf("Failed to publish cart.item.updated event: %s", e.getMessage());
             }
-            
             
             return cart;
         } finally {
@@ -223,7 +207,7 @@ public class CartService {
         // Get cart details before clearing for event
         Cart cart = cartRepository.findByUserId(userId).orElse(null);
         int itemCount = cart != null ? cart.getItems().size() : 0;
-        double totalAmount = cart != null ? cart.getTotalAmount() : 0.0;
+        double totalAmount = cart != null ? cart.getTotalPrice() : 0.0;
         
         cartRepository.delete(userId);
         logger.infof("Cart cleared: userId=%s", userId);

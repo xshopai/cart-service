@@ -6,6 +6,7 @@ import com.xshopai.cartservice.dto.AddItemRequest;
 import com.xshopai.cartservice.exception.CartException;
 import com.xshopai.cartservice.exception.InsufficientStockException;
 import com.xshopai.cartservice.exception.ProductNotFoundException;
+import com.xshopai.cartservice.messaging.CartEventPublisher;
 import com.xshopai.cartservice.model.Cart;
 import com.xshopai.cartservice.model.CartItem;
 import com.xshopai.cartservice.model.ProductInfo;
@@ -33,6 +34,9 @@ public class CartService {
     
     @Inject
     InventoryClient inventoryClient;
+    
+    @Inject
+    CartEventPublisher eventPublisher;
     
     @ConfigProperty(name = "cart.default-ttl", defaultValue = "720h")
     String defaultTtlConfig;
@@ -136,6 +140,13 @@ public class CartService {
             logger.infof("Item added to cart: userId=%s, productId=%s, quantity=%d", 
                 userId, request.getProductId(), request.getQuantity());
             
+            // Publish cart.item.added event (non-blocking, graceful failure)
+            try {
+                eventPublisher.publishItemAdded(cart, cartItem, generateCorrelationId());
+            } catch (Exception e) {
+                logger.warnf("Failed to publish cart.item.added event: %s", e.getMessage());
+            }
+            
             return cart;
         } finally {
             cartRepository.releaseLock(userId);
@@ -149,10 +160,43 @@ public class CartService {
         
         try {
             Cart cart = getCart(userId);
+            
+            // Store old quantity for event publishing
+            int oldQuantity = cart.getItems().stream()
+                .filter(item -> item.getSku().equals(sku))
+                .findFirst()
+                .map(CartItem::getQuantity)
+                .orElse(0);
+            
             cart.updateItemQuantity(sku, quantity);
             cartRepository.save(cart, parseDuration(defaultTtlConfig));
+            
             logger.infof("Item quantity updated: userId=%s, sku=%s, quantity=%d", 
                 userId, sku, quantity);
+            
+            // Publish cart.item.updated event
+            try {
+                eventPublisher.publishItemUpdated(cart, sku, oldQuantity, quantity, generateCorrelationId());
+            
+            // Find item before removal for event data
+            CartItem removedItem = cart.getItems().stream()
+                .filter(item -> item.getSku().equals(sku))
+                .findFirst()
+                .orElse(null);
+            
+            cart.removeItem(sku);
+            cartRepository.save(cart, parseDuration(defaultTtlConfig));
+            
+            logger.infof("Item removed from cart: userId=%s, sku=%s", userId, sku);
+            
+            // Publish cart.item.removed event
+            try {
+                eventPublisher.publishItemRemoved(cart, sku, removedItem, generateCorrelationId());
+            } catch (Exception e) {
+                logger.warnf("Failed to publish cart.item.removed event: %s", e.getMessage());
+            }
+            
+            
             return cart;
         } finally {
             cartRepository.releaseLock(userId);
@@ -176,8 +220,20 @@ public class CartService {
     }
     
     public void clearCart(String userId) {
+        // Get cart details before clearing for event
+        Cart cart = cartRepository.findByUserId(userId).orElse(null);
+        int itemCount = cart != null ? cart.getItems().size() : 0;
+        double totalAmount = cart != null ? cart.getTotalAmount() : 0.0;
+        
         cartRepository.delete(userId);
         logger.infof("Cart cleared: userId=%s", userId);
+        
+        // Publish cart.cleared event
+        try {
+            eventPublisher.publishCartCleared(userId, itemCount, totalAmount, generateCorrelationId());
+        } catch (Exception e) {
+            logger.warnf("Failed to publish cart.cleared event: %s", e.getMessage());
+        }
     }
     
     public Cart transferCart(String guestId, String userId) {
@@ -205,6 +261,13 @@ public class CartService {
         
         logger.infof("Cart transferred: guestId=%s, userId=%s, items=%d", 
             guestId, userId, transferredCount);
+        
+        // Publish cart.transferred event
+        try {
+            eventPublisher.publishCartTransferred(guestId, userId, transferredCount, generateCorrelationId());
+        } catch (Exception e) {
+            logger.warnf("Failed to publish cart.transferred event: %s", e.getMessage());
+        }
         
         return userCart;
     }
@@ -250,5 +313,12 @@ public class CartService {
             logger.warnf("Failed to parse duration '%s', using default 24h", durationStr);
             return Duration.ofHours(24);
         }
+    }
+    
+    /**
+     * Generate correlation ID for event tracing
+     */
+    private String generateCorrelationId() {
+        return java.util.UUID.randomUUID().toString();
     }
 }

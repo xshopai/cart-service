@@ -238,7 +238,7 @@ Cart Service communicates synchronously with:
 | Variable                | Description                | Example                 | Required | Default                 |
 | ----------------------- | -------------------------- | ----------------------- | -------- | ----------------------- |
 | `PRODUCT_SERVICE_URL`   | Product service base URL   | `http://localhost:8003` | Yes      | `http://localhost:8003` |
-| `INVENTORY_SERVICE_URL` | Inventory service base URL | `http://localhost:8004` | Yes      | `http://localhost:8004` |
+| `INVENTORY_SERVICE_URL` | Inventory service base URL | `http://localhost:8005` | Yes      | `http://localhost:8005` |
 
 #### 2.6.6 CORS Configuration
 

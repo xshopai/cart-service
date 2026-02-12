@@ -1,8 +1,8 @@
 # =============================================================================
-# Cart Service Configuration - LOCAL DEVELOPMENT (Direct Redis + RabbitMQ)
+# Cart Service Configuration - DAPR MODE (Dapr State Store + Pub/Sub)
 # =============================================================================
-# This file is for running WITHOUT Dapr sidecar
-# Uses: Direct Redis for storage, Direct RabbitMQ for messaging
+# This file is for running WITH Dapr sidecar
+# Uses: Dapr State Store for storage, Dapr Pub/Sub for messaging
 
 # Application
 quarkus.application.name=cart-service
@@ -34,29 +34,32 @@ quarkus.log.file.rotation.file-suffix=.yyyy-MM-dd
 quarkus.log.file.rotation.rotate-on-boot=true
 
 # =============================================================================
-# Cart Storage Provider - REDIS (Direct)
+# Cart Storage Provider - DAPR State Store
 # =============================================================================
-cart.storage.provider=redis
+cart.storage.provider=dapr
 
-# Redis Configuration (password: redis_dev_pass_123 for dev container)
+# Redis Configuration (fallback, kept for code compatibility)
 quarkus.redis.hosts=redis://:${REDIS_PASSWORD:redis_dev_pass_123}@${REDIS_HOST:localhost}:${REDIS_PORT:6379}
 quarkus.redis.timeout=10s
 quarkus.redis.max-pool-size=20
 quarkus.redis.max-pool-waiting=50
 
 # =============================================================================
-# Messaging Configuration - RABBITMQ (Direct)
+# Messaging Configuration - DAPR Pub/Sub
 # =============================================================================
-messaging.provider=rabbitmq
+messaging.provider=dapr
 
-# RabbitMQ Configuration
+# Dapr Pub/Sub Configuration
+dapr.pubsub.name=${DAPR_PUBSUB_NAME:pubsub}
+
+# RabbitMQ Configuration (not used in dapr mode, kept for code compatibility)
 rabbitmq.host=${RABBITMQ_HOST:localhost}
 rabbitmq.port=${RABBITMQ_PORT:5672}
 rabbitmq.username=${RABBITMQ_USERNAME:admin}
 rabbitmq.password=${RABBITMQ_PASSWORD:admin123}
 rabbitmq.exchange=${RABBITMQ_EXCHANGE:xshopai.events}
 
-# Azure Service Bus (not used in dev)
+# Azure Service Bus (not used, kept for code compatibility)
 servicebus.connection-string=
 servicebus.topic-name=xshopai-events
 
@@ -67,7 +70,7 @@ service.token.enabled=${SERVICE_TOKEN_ENABLED:true}
 service.token.value=${SERVICE_TOKEN:}
 
 # =============================================================================
-# Service Dependencies (Direct HTTP)
+# Service Dependencies (via Dapr service invocation)
 # =============================================================================
 product-service.url=${PRODUCT_SERVICE_URL:http://localhost:8001}
 inventory-service.url=${INVENTORY_SERVICE_URL:http://localhost:8005}
@@ -117,13 +120,14 @@ cart.guest-ttl=72h
 cart.max-items=100
 cart.cleanup-interval=1h
 
-# Dapr Configuration (not used in dev mode, but needed for code compilation)
-dapr.http-port=3500
-dapr.grpc-port=50001
+# =============================================================================
+# Dapr Configuration
+# =============================================================================
+dapr.http-port=${DAPR_HTTP_PORT:3508}
+dapr.grpc-port=${DAPR_GRPC_PORT:50008}
 dapr.app-id=cart-service
-dapr.state-store=statestore
-dapr.pubsub-name=pubsub
-dapr.pubsub.name=pubsub
+dapr.state-store=${DAPR_STATE_STORE:statestore}
+dapr.pubsub-name=${DAPR_PUBSUB_NAME:pubsub}
 
 # =============================================================================
 # OpenTelemetry Tracing Configuration

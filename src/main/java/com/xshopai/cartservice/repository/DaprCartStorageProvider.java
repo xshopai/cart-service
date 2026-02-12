@@ -31,21 +31,29 @@ public class DaprCartStorageProvider implements CartStorageProvider {
     
     private DaprClient daprClient;
     private boolean available = false;
+    private String lastError = null;
     
     private static final String CART_PREFIX = "cart:";
     private static final String LOCK_PREFIX = "lock:cart:";
     
     public void initialize() {
         try {
+            logger.info("Initializing Dapr storage provider...");
             this.daprClient = new DaprClientBuilder().build();
             // Test connection by doing a ping
             daprClient.waitForSidecar(5000).block();
             this.available = true;
+            this.lastError = null;
             logger.info("Dapr client initialized for state store: " + stateStoreName);
         } catch (Exception e) {
-            logger.warn("Failed to initialize Dapr client: " + e.getMessage() + ". Dapr storage will not be available.");
+            this.lastError = e.getClass().getSimpleName() + ": " + e.getMessage();
+            logger.warn("Failed to initialize Dapr client: " + lastError + ". Dapr storage will not be available.");
             this.available = false;
         }
+    }
+    
+    public String getLastError() {
+        return lastError;
     }
     
     @PreDestroy

@@ -49,8 +49,13 @@ public class CartRepository {
         } else if ("redis".equalsIgnoreCase(configuredProvider)) {
             // Explicitly configured to use Redis
             redisProvider.initialize();
-            activeProvider = redisProvider;
-            logger.info("Using Redis storage provider (explicitly configured)");
+            if (redisProvider.isAvailable()) {
+                activeProvider = redisProvider;
+                logger.info("Using Redis storage provider (explicitly configured)");
+            } else {
+                String error = redisProvider.getLastError();
+                logger.errorf("Redis storage provider failed to initialize: %s", error);
+            }
         } else {
             // Auto-detect: try Dapr first, fall back to Redis
             logger.info("Auto-detecting storage provider...");
@@ -66,7 +71,12 @@ public class CartRepository {
         }
         
         if (activeProvider == null || !activeProvider.isAvailable()) {
-            throw new IllegalStateException("No storage provider available! Check Redis/Dapr configuration.");
+            String redisError = redisProvider.getLastError();
+            String daprError = daprProvider.getLastError();
+            String details = String.format("Redis error: %s, Dapr error: %s", 
+                redisError != null ? redisError : "not attempted",
+                daprError != null ? daprError : "not attempted");
+            throw new IllegalStateException("No storage provider available! " + details);
         }
         
         logger.infof("Cart storage initialized with provider: %s", activeProvider.getProviderName());

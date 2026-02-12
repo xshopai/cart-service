@@ -29,6 +29,9 @@ go.work.sum
 # .env.local
 # .env.production
 
+# Generated application.properties (copied from .dev or .dapr)
+src/main/resources/application.properties
+
 # Logs
 logs/
 *.log

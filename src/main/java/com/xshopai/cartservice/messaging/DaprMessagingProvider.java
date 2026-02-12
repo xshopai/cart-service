@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.dapr.client.DaprClient;
 import io.dapr.client.DaprClientBuilder;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Typed;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -20,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
  * Supports any Dapr-compatible message broker (RabbitMQ, Kafka, Azure Service Bus, etc.)
  */
 @ApplicationScoped
+@Typed(DaprMessagingProvider.class)
 public class DaprMessagingProvider implements MessagingProvider {
     
     @Inject

@@ -5,6 +5,7 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Typed;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -22,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
  * Uses topic exchange for event routing.
  */
 @ApplicationScoped
+@Typed(RabbitMQMessagingProvider.class)
 public class RabbitMQMessagingProvider implements MessagingProvider {
     
     @Inject

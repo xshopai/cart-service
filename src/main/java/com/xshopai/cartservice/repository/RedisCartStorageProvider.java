@@ -42,20 +42,32 @@ public class RedisCartStorageProvider implements CartStorageProvider {
         this.objectMapper.registerModule(new JavaTimeModule());
     }
     
+    private String lastError = null;
+    
     public void initialize() {
         try {
+            logger.info("Initializing Redis storage provider...");
             // Test Redis connection
             ValueCommands<String, String> commands = redisDS.value(String.class, String.class);
             commands.set("health:test", "ok");
             String result = commands.get("health:test");
             if ("ok".equals(result)) {
                 this.available = true;
+                this.lastError = null;
                 logger.info("Redis storage provider initialized successfully");
+            } else {
+                this.lastError = "Redis health check returned unexpected result: " + result;
+                logger.warn(lastError);
             }
         } catch (Exception e) {
-            logger.warn("Failed to initialize Redis client: " + e.getMessage());
+            this.lastError = e.getClass().getSimpleName() + ": " + e.getMessage();
+            logger.error("Failed to initialize Redis client: " + lastError, e);
             this.available = false;
         }
+    }
+    
+    public String getLastError() {
+        return lastError;
     }
     
     @Override

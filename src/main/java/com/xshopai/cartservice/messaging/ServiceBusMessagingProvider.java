@@ -2,12 +2,14 @@ package com.xshopai.cartservice.messaging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Typed;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -20,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
  * TODO: Add com.azure:azure-messaging-servicebus dependency to pom.xml
  */
 @ApplicationScoped
+@Typed(ServiceBusMessagingProvider.class)
 public class ServiceBusMessagingProvider implements MessagingProvider {
     
     @Inject
@@ -28,8 +31,8 @@ public class ServiceBusMessagingProvider implements MessagingProvider {
     @Inject
     ObjectMapper objectMapper;
     
-    @ConfigProperty(name = "servicebus.connection-string", defaultValue = "")
-    String connectionString;
+    @ConfigProperty(name = "servicebus.connection-string")
+    Optional<String> connectionString;
     
     @ConfigProperty(name = "servicebus.topic-name", defaultValue = "xshopai-events")
     String topicName;
@@ -47,7 +50,7 @@ public class ServiceBusMessagingProvider implements MessagingProvider {
             return;
         }
         
-        if (connectionString == null || connectionString.isEmpty()) {
+        if (connectionString.isEmpty() || connectionString.get().isEmpty()) {
             logger.warn("Azure Service Bus connection string not configured");
             throw new RuntimeException("Azure Service Bus connection string required");
         }

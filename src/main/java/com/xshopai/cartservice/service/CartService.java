@@ -59,30 +59,59 @@ public class CartService {
         }
         
         try {
-            // Get product info
-            ProductInfo productInfo;
-            try {
-                productInfo = productClient.getProduct(request.getProductId());
-            } catch (Exception e) {
-                logger.errorf("Failed to get product %s: %s", request.getProductId(), e.getMessage());
-                throw new ProductNotFoundException("Product not found: " + request.getProductId());
+            String variantSku;
+            String productName;
+            Double price;
+            String productId = request.getProductId();
+            String category = "";
+            String imageUrl = request.getImageUrl();
+            
+            // Check if client provided all necessary data (optimized path - no product-service call)
+            boolean hasCompleteData = request.getSku() != null && !request.getSku().isEmpty()
+                && request.getProductName() != null && !request.getProductName().isEmpty()
+                && request.getPrice() != null;
+            
+            if (hasCompleteData) {
+                // Use provided data directly - skip product-service call
+                variantSku = request.getSku();
+                productName = request.getProductName();
+                price = request.getPrice();
+                logger.infof("Using client-provided SKU: %s (skipping product-service call)", variantSku);
+            } else {
+                // Fallback: Fetch product info from product-service
+                ProductInfo productInfo;
+                try {
+                    productInfo = productClient.getProduct(request.getProductId());
+                } catch (Exception e) {
+                    logger.errorf("Failed to get product %s: %s", request.getProductId(), e.getMessage());
+                    throw new ProductNotFoundException("Product not found: " + request.getProductId());
+                }
+                
+                if (productInfo == null || productInfo.getId() == null) {
+                    throw new ProductNotFoundException("Product not found: " + request.getProductId());
+                }
+                
+                // Check if product is active
+                if (productInfo.getIsActive() != null && !productInfo.getIsActive()) {
+                    throw new CartException("Product is not available");
+                }
+                
+                // Generate variant SKU from product's base SKU
+                variantSku = generateVariantSku(productInfo.getSku(), 
+                    request.getSelectedColor(), request.getSelectedSize());
+                productName = productInfo.getName();
+                price = productInfo.getPrice();
+                productId = productInfo.getId();
+                category = productInfo.getCategory() != null ? productInfo.getCategory() : "";
+                
+                // Use product service image if available
+                if (productInfo.getImageUrl() != null && !productInfo.getImageUrl().isEmpty()) {
+                    imageUrl = productInfo.getImageUrl();
+                }
+                
+                logger.infof("Generated variant SKU: %s (base: %s, color: %s, size: %s)", 
+                    variantSku, productInfo.getSku(), request.getSelectedColor(), request.getSelectedSize());
             }
-            
-            if (productInfo == null || productInfo.getId() == null) {
-                throw new ProductNotFoundException("Product not found: " + request.getProductId());
-            }
-            
-            // Check if product is active
-            if (productInfo.getIsActive() != null && !productInfo.getIsActive()) {
-                throw new CartException("Product is not available");
-            }
-            
-            // Generate variant SKU (matches the variant SKUs in inventory)
-            String variantSku = generateVariantSku(productInfo.getSku(), 
-                request.getSelectedColor(), request.getSelectedSize());
-            
-            logger.infof("Generated variant SKU: %s (base: %s, color: %s, size: %s)", 
-                variantSku, productInfo.getSku(), request.getSelectedColor(), request.getSelectedSize());
             
             // Check inventory using variant SKU (non-blocking, log warning if fails)
             try {
@@ -108,24 +137,20 @@ public class CartService {
             // Get or create cart
             Cart cart = getCart(userId);
             
-            // Use imageUrl from request if product service doesn't provide one
-            String imageUrl = productInfo.getImageUrl();
-            if (imageUrl == null || imageUrl.isEmpty()) {
-                imageUrl = request.getImageUrl();
-            }
+            // Ensure imageUrl has a value
             if (imageUrl == null || imageUrl.isEmpty()) {
                 imageUrl = "";
             }
             
             // Create cart item
             CartItem cartItem = new CartItem();
-            cartItem.setProductId(productInfo.getId());
-            cartItem.setProductName(productInfo.getName());
+            cartItem.setProductId(productId);
+            cartItem.setProductName(productName);
             cartItem.setSku(variantSku);
-            cartItem.setPrice(productInfo.getPrice());
+            cartItem.setPrice(price);
             cartItem.setQuantity(request.getQuantity());
             cartItem.setImageUrl(imageUrl);
-            cartItem.setCategory(productInfo.getCategory() != null ? productInfo.getCategory() : "");
+            cartItem.setCategory(category);
             cartItem.setSelectedColor(request.getSelectedColor());
             cartItem.setSelectedSize(request.getSelectedSize());
             cartItem.setAddedAt(System.currentTimeMillis());
@@ -137,8 +162,8 @@ public class CartService {
             Duration ttl = isGuest ? parseDuration(guestTtlConfig) : parseDuration(defaultTtlConfig);
             cartRepository.save(cart, ttl);
             
-            logger.infof("Item added to cart: userId=%s, productId=%s, quantity=%d", 
-                userId, request.getProductId(), request.getQuantity());
+            logger.infof("Item added to cart: userId=%s, productId=%s, sku=%s, quantity=%d", 
+                userId, productId, variantSku, request.getQuantity());
             
             // Publish cart.item.added event (non-blocking, graceful failure)
             try {

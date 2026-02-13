@@ -18,6 +18,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$SERVICE_DIR"
 
+# Set JWT_SECRET environment variable for JWT validation
+export JWT_SECRET="8tDBDMcpxroHoHjXjk8xp/uAn8rzD4y8ZZremFkC4gI="
+
 # Copy dev configuration
 echo "Using application.properties.dev configuration..."
 cp src/main/resources/application.properties.dev src/main/resources/application.properties

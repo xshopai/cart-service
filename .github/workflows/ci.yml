@@ -46,6 +46,9 @@ jobs:
           distribution: "temurin"
           cache: "maven"
 
+      - name: Fix Maven wrapper line endings
+        run: sed -i 's/\r$//' mvnw && chmod +x mvnw
+
       - name: Build with Maven
         run: ./mvnw clean package -DskipTests -B
 

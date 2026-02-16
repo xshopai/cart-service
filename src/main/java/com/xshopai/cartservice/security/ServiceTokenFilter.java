@@ -94,6 +94,7 @@ public class ServiceTokenFilter implements ContainerRequestFilter {
     /**
      * Simple error response structure
      */
+    @SuppressWarnings("unused")
     private static class ErrorResponse {
         public String error;
         public String message;

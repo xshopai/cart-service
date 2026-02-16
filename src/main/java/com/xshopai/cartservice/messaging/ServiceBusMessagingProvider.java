@@ -87,6 +87,7 @@ public class ServiceBusMessagingProvider implements MessagingProvider {
             try {
                 // Build CloudEvents-compliant message
                 Map<String, Object> cloudEvent = buildCloudEvent(topic, eventData, correlationId);
+                @SuppressWarnings("unused")
                 String messageJson = objectMapper.writeValueAsString(cloudEvent);
                 
                 logger.debugf("Publishing event via Azure Service Bus: topic=%s, correlationId=%s", 

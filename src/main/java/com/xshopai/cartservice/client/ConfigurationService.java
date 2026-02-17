@@ -14,15 +14,16 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Dapr Secret Manager
+ * Configuration Service
  * Handles retrieving secrets with environment variable priority.
  * 
  * Priority:
  * 1. Environment variables/config (Azure deployment - injected from Key Vault)
- * 2. Dapr secret store (local development with .dapr/secrets.json)
+ * 2. MicroProfile Config property (application.properties)
+ * 3. Dapr secret store (fallback for local development with .dapr/secrets.json)
  */
 @ApplicationScoped
-public class DaprSecretManager {
+public class ConfigurationService {
 
     @Inject
     Logger logger;
@@ -42,9 +43,9 @@ public class DaprSecretManager {
         
         if (daprEnabled) {
             this.daprClient = new DaprClientBuilder().build();
-            logger.infof("Dapr Secret Manager initialized with store: %s", secretStoreName);
+            logger.infof("Configuration Service initialized with Dapr secret store: %s", secretStoreName);
         } else {
-            logger.infof("Dapr Secret Manager initialized (Dapr disabled - using env vars only)");
+            logger.infof("Configuration Service initialized (using env vars/config only)");
         }
     }
 

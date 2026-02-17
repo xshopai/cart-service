@@ -388,7 +388,7 @@ The cart service uses **Dapr's Secret Management building block** for secure sto
 
 - **Secret Store Support**: Local file, Azure Key Vault, AWS Secrets Manager, GCP Secret Manager, HashiCorp Vault
 - **Component Integration**: Dapr components reference secrets via `secretKeyRef`
-- **SDK Access**: `DaprSecretManager` provides programmatic access to secrets
+- **SDK Access**: `ConfigurationService` provides programmatic access to secrets (env vars first, Dapr fallback)
 - **Production Ready**: Easy migration from local to cloud-based secret stores
 
 #### Configuration
@@ -418,14 +418,14 @@ auth:
   secretStore: local-secret-store
 ```
 
-Access secrets in code via `DaprSecretManager`:
+Access secrets in code via `ConfigurationService`:
 
 ```java
 @Inject
-DaprSecretManager secretManager;
+ConfigurationService configService;
 
-String redisPassword = secretManager.getSecret("redis:password");
-String jwtSecret = secretManager.getJwtSecret();
+String redisPassword = configService.getSecret("redis:password");
+String jwtSecret = configService.getJwtSecret();
 ```
 
 📖 **See `.dapr/SECRETS_README.md` for complete secret management documentation**

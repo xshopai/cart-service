@@ -112,18 +112,34 @@ public class CartService {
                     variantSku, productInfo.getSku(), request.getSelectedColor(), request.getSelectedSize());
             }
             
-            // Check inventory using variant SKU (non-blocking, log warning if fails)
+            // Get or create cart (moved up to check existing quantity before inventory check)
+            Cart cart = getCart(userId);
+            
+            // Calculate total quantity that would be in cart after adding this item
+            // (existing quantity + requested quantity) to properly check inventory
+            int existingQuantity = cart.getItems().stream()
+                .filter(item -> item.getSku().equals(variantSku))
+                .findFirst()
+                .map(CartItem::getQuantity)
+                .orElse(0);
+            int totalQuantityAfterAdd = existingQuantity + request.getQuantity();
+            
+            // Check inventory using variant SKU for TOTAL quantity after add
             try {
-                logger.infof("Checking inventory availability: sku=%s, quantity=%d", 
-                    variantSku, request.getQuantity());
+                logger.infof("Checking inventory availability: sku=%s, existing=%d, adding=%d, total=%d", 
+                    variantSku, existingQuantity, request.getQuantity(), totalQuantityAfterAdd);
                 
-                boolean available = inventoryClient.checkAvailability(variantSku, request.getQuantity());
+                boolean available = inventoryClient.checkAvailability(variantSku, totalQuantityAfterAdd);
                 
-                logger.infof("Inventory check result: sku=%s, available=%s", variantSku, available);
+                logger.infof("Inventory check result: sku=%s, totalQuantity=%d, available=%s", 
+                    variantSku, totalQuantityAfterAdd, available);
                 
                 if (!available) {
-                    logger.warnf("Insufficient stock for SKU %s, quantity %d", variantSku, request.getQuantity());
-                    throw new InsufficientStockException("Insufficient stock for product");
+                    logger.warnf("Insufficient stock for SKU %s: total quantity %d (existing %d + adding %d) exceeds available stock", 
+                        variantSku, totalQuantityAfterAdd, existingQuantity, request.getQuantity());
+                    throw new InsufficientStockException(
+                        String.format("Cannot add %d more items. You already have %d in cart and total would exceed available stock.", 
+                            request.getQuantity(), existingQuantity));
                 }
             } catch (InsufficientStockException e) {
                 logger.errorf("InsufficientStockException: %s", e.getMessage());
@@ -132,9 +148,6 @@ public class CartService {
                 logger.warnf("Failed to check inventory for SKU %s, allowing operation: %s", 
                     variantSku, e.getMessage());
             }
-            
-            // Get or create cart
-            Cart cart = getCart(userId);
             
             // Ensure imageUrl has a value
             if (imageUrl == null || imageUrl.isEmpty()) {
@@ -191,6 +204,28 @@ public class CartService {
                 .findFirst()
                 .map(CartItem::getQuantity)
                 .orElse(0);
+            
+            // If increasing quantity, check inventory availability
+            if (quantity > oldQuantity) {
+                try {
+                    logger.infof("Checking inventory for quantity update: sku=%s, old=%d, new=%d", 
+                        sku, oldQuantity, quantity);
+                    
+                    boolean available = inventoryClient.checkAvailability(sku, quantity);
+                    
+                    if (!available) {
+                        logger.warnf("Insufficient stock for SKU %s: requested quantity %d exceeds available stock", 
+                            sku, quantity);
+                        throw new InsufficientStockException(
+                            String.format("Cannot update to %d items - exceeds available stock.", quantity));
+                    }
+                } catch (InsufficientStockException e) {
+                    throw e;
+                } catch (Exception e) {
+                    logger.warnf("Failed to check inventory for SKU %s, allowing operation: %s", 
+                        sku, e.getMessage());
+                }
+            }
             
             cart.updateItemQuantity(sku, quantity);
             cartRepository.save(cart, parseDuration(defaultTtlConfig));

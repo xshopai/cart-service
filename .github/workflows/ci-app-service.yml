@@ -171,33 +171,9 @@ jobs:
           echo "Downloaded artifacts:"
           ls -la
           
-          # Create startup script with logging using printf
-          printf '%s\n' '#!/bin/bash' \
-            'set -e' \
-            'echo "[STARTUP] Starting cart-service..."' \
-            'echo "[STARTUP] Working directory: $(pwd)"' \
-            'echo "[STARTUP] Contents:"' \
-            'ls -la /home/site/wwwroot/' \
-            'echo "[STARTUP] Java version:"' \
-            'java -version' \
-            'echo "[STARTUP] Checking for quarkus-run.jar:"' \
-            'if [ -f /home/site/wwwroot/quarkus-run.jar ]; then' \
-            '  echo "[STARTUP] Found quarkus-run.jar"' \
-            'else' \
-            '  echo "[STARTUP] ERROR: quarkus-run.jar not found!"' \
-            '  exit 1' \
-            'fi' \
-            'echo "[STARTUP] Starting Quarkus application..."' \
-            'cd /home/site/wwwroot' \
-            'exec java -Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8080 -jar quarkus-run.jar' \
-            > startup.sh
-          
-          chmod +x startup.sh
-          echo "Startup script created:"
-          cat startup.sh
-          
-          # Create zip of quarkus-app contents + startup script
-          zip -r app.zip startup.sh quarkus-run.jar lib app quarkus
+          # Create zip of quarkus-app contents WITHOUT startup script
+          # Let Azure auto-detect and run the jar
+          zip -r app.zip quarkus-run.jar lib app quarkus
           echo "Package contents:"
           unzip -l app.zip | head -20
 
@@ -208,21 +184,22 @@ jobs:
           resource-group-name: ${{ env.RESOURCE_GROUP }}
           package: app.zip
 
-      - name: Configure startup command
+      - name: Configure Quarkus settings
         run: |
-          # Use the startup script instead of direct java command
+          # Clear any custom startup command - let Azure auto-detect
           az webapp config set \
             --name "$APP_NAME" \
             --resource-group "$RESOURCE_GROUP" \
-            --startup-file "/home/site/wwwroot/startup.sh"
+            --startup-file ""
           
-          # Verify configuration
-          echo "Verifying startup configuration:"
-          az webapp config show \
+          # Set environment variables for Quarkus
+          az webapp config appsettings set \
             --name "$APP_NAME" \
             --resource-group "$RESOURCE_GROUP" \
-            --query "{linuxFxVersion: linuxFxVersion, appCommandLine: appCommandLine}" \
-            --output json
+            --settings \
+              JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8080"
+          
+          echo "Configuration updated - Azure will auto-detect quarkus-run.jar"
 
       # -------------------------------------------------------------------
       # Health check

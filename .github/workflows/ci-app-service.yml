@@ -170,7 +170,7 @@ jobs:
           # List downloaded artifacts
           echo "Downloaded artifacts:"
           ls -la
-          
+
           # Create zip of quarkus-app contents WITHOUT startup script
           # Let Azure auto-detect and run the jar
           zip -r app.zip quarkus-run.jar lib app quarkus
@@ -191,14 +191,14 @@ jobs:
             --name "$APP_NAME" \
             --resource-group "$RESOURCE_GROUP" \
             --startup-file ""
-          
+
           # Set environment variables for Quarkus
           az webapp config appsettings set \
             --name "$APP_NAME" \
             --resource-group "$RESOURCE_GROUP" \
             --settings \
               JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8080"
-          
+
           echo "Configuration updated - Azure will auto-detect quarkus-run.jar"
 
       # -------------------------------------------------------------------

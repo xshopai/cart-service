@@ -171,28 +171,30 @@ jobs:
           echo "Downloaded artifacts:"
           ls -la
           
-          # Create startup script with logging
-          cat > startup.sh << 'EOF'
-#!/bin/bash
-set -e
-echo "[STARTUP] Starting cart-service..."
-echo "[STARTUP] Working directory: $(pwd)"
-echo "[STARTUP] Contents:"
-ls -la /home/site/wwwroot/
-echo "[STARTUP] Java version:"
-java -version
-echo "[STARTUP] Checking for quarkus-run.jar:"
-if [ -f /home/site/wwwroot/quarkus-run.jar ]; then
-  echo "[STARTUP] Found quarkus-run.jar"
-else
-  echo "[STARTUP] ERROR: quarkus-run.jar not found!"
-  exit 1
-fi
-echo "[STARTUP] Starting Quarkus application..."
-cd /home/site/wwwroot
-exec java -Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8080 -jar quarkus-run.jar
-EOF
+          # Create startup script with logging using printf
+          printf '%s\n' '#!/bin/bash' \
+            'set -e' \
+            'echo "[STARTUP] Starting cart-service..."' \
+            'echo "[STARTUP] Working directory: $(pwd)"' \
+            'echo "[STARTUP] Contents:"' \
+            'ls -la /home/site/wwwroot/' \
+            'echo "[STARTUP] Java version:"' \
+            'java -version' \
+            'echo "[STARTUP] Checking for quarkus-run.jar:"' \
+            'if [ -f /home/site/wwwroot/quarkus-run.jar ]; then' \
+            '  echo "[STARTUP] Found quarkus-run.jar"' \
+            'else' \
+            '  echo "[STARTUP] ERROR: quarkus-run.jar not found!"' \
+            '  exit 1' \
+            'fi' \
+            'echo "[STARTUP] Starting Quarkus application..."' \
+            'cd /home/site/wwwroot' \
+            'exec java -Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8080 -jar quarkus-run.jar' \
+            > startup.sh
+          
           chmod +x startup.sh
+          echo "Startup script created:"
+          cat startup.sh
           
           # Create zip of quarkus-app contents + startup script
           zip -r app.zip startup.sh quarkus-run.jar lib app quarkus

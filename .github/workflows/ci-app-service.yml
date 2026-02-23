@@ -71,6 +71,7 @@ jobs:
         continue-on-error: true
 
       # Upload build artifacts for deployment (only when deploying)
+      # Note: Quarkus fast-jar puts the runner in target/quarkus-app/
       - name: Upload build artifacts
         if: >
           (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
@@ -79,8 +80,7 @@ jobs:
         with:
           name: build-artifacts
           path: |
-            target/*.jar
-            pom.xml
+            target/quarkus-app/
           retention-days: 1
 
   # ============================================================================
@@ -161,14 +161,30 @@ jobs:
           fi
 
       # -------------------------------------------------------------------
-      # Deploy JAR to App Service
+      # Deploy Quarkus app to App Service
+      # Quarkus fast-jar requires the entire quarkus-app directory
       # -------------------------------------------------------------------
+      - name: Prepare deployment package
+        run: |
+          # Create zip of quarkus-app contents for deployment
+          cd target/quarkus-app
+          zip -r ../../app.zip .
+          cd ../..
+          ls -la app.zip
+
       - name: Deploy to App Service
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.APP_NAME }}
           resource-group-name: ${{ env.RESOURCE_GROUP }}
-          package: target/*.jar
+          package: app.zip
+
+      - name: Configure startup command
+        run: |
+          az webapp config set \
+            --name "$APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --startup-file "java -jar /home/site/wwwroot/quarkus-run.jar"
 
       # -------------------------------------------------------------------
       # Health check

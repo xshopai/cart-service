@@ -168,10 +168,36 @@ jobs:
       - name: Prepare deployment package
         run: |
           # List downloaded artifacts
+          echo "Downloaded artifacts:"
           ls -la
-          # Create zip of quarkus-app contents for deployment
-          zip -r app.zip quarkus-run.jar lib app quarkus
-          ls -la app.zip
+          
+          # Create startup script with logging
+          cat > startup.sh << 'EOF'
+#!/bin/bash
+set -e
+echo "[STARTUP] Starting cart-service..."
+echo "[STARTUP] Working directory: $(pwd)"
+echo "[STARTUP] Contents:"
+ls -la /home/site/wwwroot/
+echo "[STARTUP] Java version:"
+java -version
+echo "[STARTUP] Checking for quarkus-run.jar:"
+if [ -f /home/site/wwwroot/quarkus-run.jar ]; then
+  echo "[STARTUP] Found quarkus-run.jar"
+else
+  echo "[STARTUP] ERROR: quarkus-run.jar not found!"
+  exit 1
+fi
+echo "[STARTUP] Starting Quarkus application..."
+cd /home/site/wwwroot
+exec java -Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8080 -jar quarkus-run.jar
+EOF
+          chmod +x startup.sh
+          
+          # Create zip of quarkus-app contents + startup script
+          zip -r app.zip startup.sh quarkus-run.jar lib app quarkus
+          echo "Package contents:"
+          unzip -l app.zip | head -20
 
       - name: Deploy to App Service
         uses: azure/webapps-deploy@v3
@@ -182,10 +208,19 @@ jobs:
 
       - name: Configure startup command
         run: |
+          # Use the startup script instead of direct java command
           az webapp config set \
             --name "$APP_NAME" \
             --resource-group "$RESOURCE_GROUP" \
-            --startup-file "java -jar /home/site/wwwroot/quarkus-run.jar"
+            --startup-file "/home/site/wwwroot/startup.sh"
+          
+          # Verify configuration
+          echo "Verifying startup configuration:"
+          az webapp config show \
+            --name "$APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "{linuxFxVersion: linuxFxVersion, appCommandLine: appCommandLine}" \
+            --output json
 
       # -------------------------------------------------------------------
       # Health check

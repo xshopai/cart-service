@@ -1,9 +1,0 @@
-<step title="Incoming Request" date="2026-02-23T18:06:33.001" instance="84987d" url="/api/deployments/latest?deployer=OneDeploy&amp;time=2026-02-23_18-06-26Z" method="GET" type="request" pid="768,1,42" Host="app-cart-service-xshopai-development.scm.azurewebsites.net" User-Agent="GITHUBACTIONS_DeployWebAppToAzure_51e58695901c2349472593d47aa07e760428b1f45c8b4bb515e294c7b564ea09" Authorization="Bea..." Content-Type="application/json; charset=utf-8" Cookie="ARRAffinity=84987d31f74c131230167cfa6dc666c0e319b4d4a125faa6a379281f05ae2d9e;Path=/;HttpOnly;Secure;Domain=app-cart-service-xshopai-development.scm.azurewebsites.net; ARRAffinitySameSite=84987d31f74c131230167cfa6dc666c0e319b4d4a125faa6a379281f05ae2d9e;Path=/;HttpOnly;SameSite=None;Secure;Domain=app-cart-service-xshopai-development.scm.azurewebsites.net" Content-Length="0" X-ARR-LOG-ID="d844c50c-8814-48a7-9b47-2197cd9f53f3" CLIENT-IP="64.236.143.34:27201" X-SITE-DEPLOYMENT-ID="app-cart-service-xshopai-development" WAS-DEFAULT-HOSTNAME="app-cart-service-xshopai-development.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/deployments/latest?deployer=OneDeploy&amp;time=2026-02-23_18-06-26Z" X-Client-IP="64.236.143.34" X-Client-Port="27201" >
-  <step title="Cleanup Xml Logs" date="2026-02-23T18:06:33.004" /><!-- duration: 4ms -->
-  <step title="DeploymentService.GetResult" date="2026-02-23T18:06:33.069" >
-    <step title="DeploymentService.GetLatestDeployment" date="2026-02-23T18:06:33.075" >
-      <step title="DeploymentManager.GetResults" date="2026-02-23T18:06:33.138" /><!-- duration: 754ms -->
-    </step><!-- duration: 843ms -->
-  </step><!-- duration: 856ms -->
-  <step title="Outgoing response" date="2026-02-23T18:06:33.936" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 3ms -->
-</step><!-- duration: 940ms -->

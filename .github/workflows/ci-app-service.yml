@@ -163,13 +163,14 @@ jobs:
       # -------------------------------------------------------------------
       # Deploy Quarkus app to App Service
       # Quarkus fast-jar requires the entire quarkus-app directory
+      # Artifacts are downloaded flat (contents of target/quarkus-app/)
       # -------------------------------------------------------------------
       - name: Prepare deployment package
         run: |
+          # List downloaded artifacts
+          ls -la
           # Create zip of quarkus-app contents for deployment
-          cd target/quarkus-app
-          zip -r ../../app.zip .
-          cd ../..
+          zip -r app.zip quarkus-run.jar lib app quarkus
           ls -la app.zip
 
       - name: Deploy to App Service

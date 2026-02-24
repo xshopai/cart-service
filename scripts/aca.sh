@@ -1,6 +1,7 @@
 #!/bin/bash
 # ==============================================================================
 # Azure Container Apps Deployment Script - cart-service
+# Runtime: Node.js/TypeScript
 # ==============================================================================
 set -e
 
@@ -43,10 +44,10 @@ read -p "Enter infrastructure suffix: " SUFFIX
 [[ -n "$SUFFIX" && "$SUFFIX" =~ ^[a-z0-9]{3,6}$ ]] || { print_error "Invalid suffix (3-6 lowercase alphanumeric)"; exit 1; }
 print_success "Environment: $ENVIRONMENT, Suffix: $SUFFIX"
 
-# Set Quarkus-specific environment
+# Set Node.js-specific environment
 case "$ENVIRONMENT" in
-    dev)  QUARKUS_PROFILE="dev"; LOG_LEVEL="DEBUG" ;;
-    prod) QUARKUS_PROFILE="prod"; LOG_LEVEL="WARN" ;;
+    dev)  NODE_ENV="development"; LOG_LEVEL="debug" ;;
+    prod) NODE_ENV="production"; LOG_LEVEL="info" ;;
 esac
 
 # ==============================================================================
@@ -107,7 +108,7 @@ print_header "Building and Pushing Image"
 az acr login --name "$ACR_NAME"
 cd "$SERVICE_DIR"
 
-print_info "Building Docker image (Java/Quarkus build takes a few minutes)..."
+print_info "Building Docker image (Node.js build)..."
 docker build --target production -t "$SERVICE_NAME:latest" .
 print_success "Image built"
 
@@ -122,19 +123,21 @@ print_success "Image pushed: $IMAGE_TAG"
 print_header "Deploying Container App"
 ACR_PASSWORD=$(az acr credential show --name "$ACR_NAME" --query "passwords[0].value" -o tsv)
 
-# Build environment variables array
+# Build environment variables array (Node.js)
 ENV_VARS=(
-    "QUARKUS_PROFILE=$QUARKUS_PROFILE"
-    "QUARKUS_HTTP_PORT=$APP_PORT"
-    "QUARKUS_LOG_LEVEL=$LOG_LEVEL"
+    "NODE_ENV=$NODE_ENV"
+    "PORT=$APP_PORT"
+    "HOST=0.0.0.0"
+    "LOG_LEVEL=$LOG_LEVEL"
+    "SERVICE_NAME=$SERVICE_NAME"
+    "SERVICE_VERSION=1.0.0"
 )
 [[ -n "$JWT_SECRET" ]] && ENV_VARS+=("JWT_SECRET=$JWT_SECRET")
 [[ -n "$SERVICE_PRODUCT_TOKEN" ]] && ENV_VARS+=("SERVICE_PRODUCT_TOKEN=$SERVICE_PRODUCT_TOKEN")
 [[ -n "$SERVICE_INVENTORY_TOKEN" ]] && ENV_VARS+=("SERVICE_INVENTORY_TOKEN=$SERVICE_INVENTORY_TOKEN")
 [[ -n "$SERVICE_WEBBFF_TOKEN" ]] && ENV_VARS+=("SERVICE_WEBBFF_TOKEN=$SERVICE_WEBBFF_TOKEN")
 [[ -n "$AI_CONNECTION_STRING" ]] && ENV_VARS+=("APPLICATIONINSIGHTS_CONNECTION_STRING=$AI_CONNECTION_STRING")
-[[ -n "$AI_CONNECTION_STRING" ]] && ENV_VARS+=("OTEL_EXPORTER_OTLP_ENDPOINT=")
-[[ -n "$AI_CONNECTION_STRING" ]] && ENV_VARS+=("OTEL_TRACES_EXPORTER=none")
+[[ -n "$AI_CONNECTION_STRING" ]] && ENV_VARS+=("ENABLE_TRACING=true")
 
 if az containerapp show --name "$CONTAINER_APP" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
     print_info "Updating existing container app..."
@@ -160,14 +163,14 @@ else
         --ingress external \
         --min-replicas 1 \
         --max-replicas 10 \
-        --cpu 1.0 \
-        --memory 2.0Gi \
+        --cpu 0.5 \
+        --memory 1.0Gi \
         --enable-dapr \
         --dapr-app-id "$SERVICE_NAME" \
         --dapr-app-port $APP_PORT \
         --env-vars "${ENV_VARS[@]}" \
         ${IDENTITY_ID:+--user-assigned "$IDENTITY_ID"} \
-        --tags "project=$PROJECT_NAME" "environment=$ENVIRONMENT" "service=$SERVICE_NAME" \
+        --tags "project=$PROJECT_NAME" "environment=$ENVIRONMENT" "service=$SERVICE_NAME" "runtime=nodejs" \
         --output none
     print_success "Container app created"
 fi
@@ -182,7 +185,7 @@ print_success "FQDN: https://$APP_FQDN"
 print_info "Waiting for app to start..."
 sleep 15
 
-HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://$APP_FQDN/health" 2>/dev/null || echo "000")
+HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://$APP_FQDN/health/live" 2>/dev/null || echo "000")
 if [ "$HEALTH_STATUS" = "200" ]; then
     print_success "Health check passed (HTTP $HEALTH_STATUS)"
 else
@@ -196,10 +199,9 @@ print_header "Deployment Summary"
 echo -e "${GREEN}✅ $SERVICE_NAME deployed successfully${NC}"
 echo ""
 echo -e "${CYAN}Endpoints:${NC}"
-echo "   Health:     https://$APP_FQDN/health"
-echo "   Swagger:    https://$APP_FQDN/swagger-ui"
+echo "   Health:     https://$APP_FQDN/health/live"
 echo "   Cart API:   https://$APP_FQDN/api/v1/cart (JWT required)"
-echo "   Guest API:  https://$APP_FQDN/api/v1/guest (public)"
+echo "   Guest API:  https://$APP_FQDN/api/v1/guest/cart/:guestId (public)"
 echo ""
 echo -e "${CYAN}Dapr:${NC}"
 echo "   App ID:     $SERVICE_NAME"

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Cart Service - Run with Dapr State Store + Pub/Sub
+# Runtime: Node.js/TypeScript
 
 echo "Starting Cart Service (Dapr State Store + Pub/Sub)..."
 echo "Service will be available at: http://localhost:8008"
@@ -13,9 +14,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$SERVICE_DIR"
 
-# Copy dapr configuration
-echo "Using application.properties.dapr configuration..."
-cp src/main/resources/application.properties.dapr src/main/resources/application.properties
+# Install dependencies if needed
+if [ ! -d "node_modules" ]; then
+    echo "Installing dependencies..."
+    npm install
+fi
 
 # Kill any processes using required ports (prevents "address already in use" errors)
 for PORT in 8008 3508 50008; do
@@ -33,4 +36,4 @@ dapr run \
   --log-level info \
   --config ./.dapr/config.yaml \
   --resources-path ./.dapr/components \
-  -- mvn quarkus:dev -Ddebug=false -Dquarkus.test.continuous-testing=disabled
+  -- npm run dev:dapr

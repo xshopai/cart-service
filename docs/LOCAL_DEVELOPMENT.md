@@ -2,45 +2,60 @@
 
 ## Overview
 
-The Cart Service is a Java/Quarkus microservice that manages shopping carts for the xshopai e-commerce platform. It uses Redis (via Dapr state store) for cart persistence.
+The Cart Service is a Node.js/TypeScript microservice that manages shopping carts for the xshopai e-commerce platform. It uses Redis (via Dapr state store) for cart persistence.
 
 ## Prerequisites
 
-- **Java 17+** (OpenJDK recommended)
-- **Maven 3.8+**
+- **Node.js 20+** (LTS recommended)
+- **npm** (comes with Node.js)
 - **Docker** & Docker Compose
 - **Redis** (via Docker or local installation)
+- **Dapr CLI** (optional, for Dapr mode)
 
 ## Quick Start
 
-### 1. Build the Project
+### 1. Install Dependencies
 
 ```bash
 cd cart-service
-./mvnw clean install
-```
-
-Or on Windows:
-
-```cmd
-mvnw.cmd clean install
+npm install
 ```
 
 ### 2. Environment Configuration
 
-Create a `.env` file or set environment variables:
+Copy the example environment file:
+
+```bash
+cp .env.example .env
+```
+
+Or use the pre-configured mode-specific files:
+
+```bash
+# For HTTP mode (direct Redis)
+cp .env.http .env
+
+# For Dapr mode
+cp .env.dapr .env
+```
+
+Key environment variables:
 
 ```env
 # Server Configuration
-QUARKUS_HTTP_PORT=1008
+PORT=8008
+HOST=0.0.0.0
+NODE_ENV=development
 
-# Redis Configuration (for local development without Dapr)
-REDIS_HOST=localhost
-REDIS_PORT=6379
+# Dapr Configuration (for Dapr mode)
+DAPR_HTTP_PORT=3508
+DAPR_GRPC_PORT=50008
+DAPR_STATE_STORE=statestore
+DAPR_PUBSUB_NAME=pubsub
 
-# Dapr Configuration
-DAPR_HTTP_PORT=3500
-STATESTORE_NAME=statestore
+# Redis Configuration (for HTTP mode)
+REDIS_URL=redis://localhost:6379
+REDIS_PASSWORD=redis_dev_pass_123
 ```
 
 ### 3. Start Infrastructure
@@ -48,14 +63,14 @@ STATESTORE_NAME=statestore
 Start Redis using Docker Compose:
 
 ```bash
-docker-compose up -d redis
+docker-compose up -d cart-redis
 ```
 
 Or use the shared infrastructure:
 
 ```bash
-cd ../scripts/docker-compose
-docker-compose -f docker-compose.infrastructure.yml up -d redis
+cd ../dev
+docker-compose up -d redis
 ```
 
 ### 4. Run the Service
@@ -63,14 +78,20 @@ docker-compose -f docker-compose.infrastructure.yml up -d redis
 **Development mode (with hot reload):**
 
 ```bash
-./mvnw quarkus:dev
+npm run dev
+```
+
+**With HTTP mode (direct Redis):**
+
+```bash
+npm run dev:http
 ```
 
 **Production mode:**
 
 ```bash
-./mvnw package -DskipTests
-java -jar target/quarkus-app/quarkus-run.jar
+npm run build
+npm start
 ```
 
 ## Running with Dapr
@@ -78,135 +99,91 @@ java -jar target/quarkus-app/quarkus-run.jar
 For local development with Dapr sidecar:
 
 ```bash
-# Windows
-.\run.ps1
+# Using npm script
+npm run dev:dapr
 
-# macOS/Linux
-./run.sh
+# Or using the shell script
+./scripts/dapr.sh
 ```
 
 Or manually:
 
-> **Note:** All services now use the standard Dapr ports (3500 for HTTP, 50001 for gRPC). This simplifies configuration and works consistently whether running via Docker Compose or individual service runs.
-
 ```bash
 dapr run \
   --app-id cart-service \
-  --app-port 1008 \
-  --dapr-http-port 3500 \
-  --dapr-grpc-port 50001 \
+  --app-port 8008 \
+  --dapr-http-port 3508 \
+  --dapr-grpc-port 50008 \
   --resources-path .dapr/components \
   --config .dapr/config.yaml \
-  -- ./mvnw quarkus:dev
-```
-
-## Available Scripts
-
-| Script                   | Description           |
-| ------------------------ | --------------------- |
-| `./mvnw quarkus:dev`     | Start with hot reload |
-| `./mvnw package`         | Build JAR             |
-| `./mvnw test`            | Run tests             |
-| `./mvnw clean`           | Clean build artifacts |
-| `./run.ps1` / `./run.sh` | Run with Dapr sidecar |
-
-## API Endpoints
-
-The service runs on `http://localhost:1008` by default.
-
-### Health Check
-
-```bash
-curl http://localhost:1008/health
-```
-
-### Cart Operations
-
-```bash
-# Get cart
-curl http://localhost:1008/api/cart/{userId}
-
-# Add item to cart
-curl -X POST http://localhost:1008/api/cart/{userId}/items \
-  -H "Content-Type: application/json" \
-  -d '{"productId": "123", "quantity": 2}'
-
-# Update item quantity
-curl -X PUT http://localhost:1008/api/cart/{userId}/items/{productId} \
-  -H "Content-Type: application/json" \
-  -d '{"quantity": 3}'
-
-# Remove item
-curl -X DELETE http://localhost:1008/api/cart/{userId}/items/{productId}
-
-# Clear cart
-curl -X DELETE http://localhost:1008/api/cart/{userId}
+  -- npm run dev
 ```
 
 ## Testing
 
 ```bash
 # Run all tests
-./mvnw test
+npm test
 
-# Run specific test class
-./mvnw test -Dtest=CartResourceTest
+# Run unit tests only
+npm run test:unit
 
 # Run with coverage
-./mvnw test jacoco:report
+npm run test:coverage
+
+# Watch mode
+npm run test:watch
 ```
 
-## Project Structure
+## API Endpoints
 
-```
-cart-service/
-├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   └── com/xshopai/cart/
-│   │   │       ├── controller/   # REST endpoints
-│   │   │       ├── service/      # Business logic
-│   │   │       ├── model/        # Domain models
-│   │   │       └── repository/   # Data access
-│   │   └── resources/
-│   │       └── application.properties
-│   └── test/
-│       └── java/
-├── .dapr/
-│   ├── components/    # Dapr component configs
-│   └── config.yaml    # Dapr configuration
-├── docs/              # Documentation
-├── scripts/           # Deployment scripts
-└── pom.xml
-```
+Once running, the service is available at `http://localhost:8008`:
 
-## Troubleshooting
+| Endpoint | Description |
+|----------|-------------|
+| `/info` | Service information |
+| `/health/ready` | Readiness probe |
+| `/health/live` | Liveness probe |
+| `/metrics` | Service metrics |
+| `/api/v1/cart` | Cart operations (JWT required) |
+| `/api/v1/guest/cart/:guestId` | Guest cart operations |
 
-### Redis Connection Issues
-
-1. Verify Redis is running:
-
-   ```bash
-   docker ps | grep redis
-   redis-cli ping
-   ```
-
-2. Check Redis connection settings
-
-### Quarkus Dev Mode Issues
-
-```bash
-# Clear and rebuild
-./mvnw clean quarkus:dev
-
-# Force dependency update
-./mvnw clean install -U
-```
+## Common Issues
 
 ### Port Already in Use
 
 ```bash
-# Find process using port 1008
-netstat -ano | findstr :1008  # Windows
-lsof -i :1008                 # macOS/Linux
+# Kill process on port 8008
+npx kill-port 8008
 ```
+
+### Redis Connection Failed
+
+Ensure Redis is running:
+
+```bash
+docker ps | grep redis
+# If not running:
+docker-compose up -d cart-redis
+```
+
+### Dapr Sidecar Not Starting
+
+Check Dapr installation:
+
+```bash
+dapr --version
+dapr init
+```
+
+## Development Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start with hot reload |
+| `npm run dev:dapr` | Start with Dapr sidecar |
+| `npm run dev:http` | Start in HTTP mode |
+| `npm run build` | Compile TypeScript |
+| `npm start` | Run production build |
+| `npm test` | Run tests |
+| `npm run lint` | Lint code |

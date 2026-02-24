@@ -1,62 +1,65 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  # PostgreSQL for Cart Service
-  cart-postgres:
-    image: postgres:16
-    container_name: cart-postgres
+  # Redis for Cart State Storage
+  cart-redis:
+    image: redis:7-alpine
+    container_name: cart-redis
     restart: unless-stopped
+    command: redis-server --requirepass redis_dev_pass_123
     ports:
-      - "5433:5432"
-    environment:
-      POSTGRES_DB: cart_service_db
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin123
+      - "6379:6379"
     volumes:
-      - cart_postgres_data:/var/lib/postgresql/data
+      - cart_redis_data:/data
     networks:
       - xshopai-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d cart_service_db"]
+      test: ["CMD", "redis-cli", "-a", "redis_dev_pass_123", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Cart Service (Java/Spring Boot)
+  # Cart Service (Node.js/TypeScript)
   cart-service:
     build:
       context: .
       dockerfile: Dockerfile
+      target: production
     container_name: cart-service
     restart: unless-stopped
     ports:
-      - "1005:1005"
+      - "8008:8008"
     environment:
-      - SPRING_PROFILES_ACTIVE=production
-      - SERVER_PORT=1005
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://cart-postgres:5432/cart_service_db
-      - SPRING_DATASOURCE_USERNAME=admin
-      - SPRING_DATASOURCE_PASSWORD=admin123
-      - SPRING_RABBITMQ_HOST=rabbitmq-message-broker
-      - SPRING_RABBITMQ_PORT=5672
-      - SPRING_RABBITMQ_USERNAME=admin
-      - SPRING_RABBITMQ_PASSWORD=admin123
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - NODE_ENV=production
+      - PORT=8008
+      - HOST=0.0.0.0
+      - LOG_LEVEL=info
+      - LOG_FORMAT=json
+      - DAPR_HTTP_PORT=3508
+      - DAPR_GRPC_PORT=50008
+      - DAPR_STATE_STORE=statestore
+      - DAPR_PUBSUB_NAME=pubsub
     depends_on:
-      cart-postgres:
+      cart-redis:
         condition: service_healthy
     networks:
       - xshopai-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1005/actuator/health"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:8008/health/live', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 10s
 
 volumes:
-  cart_postgres_data:
-    name: cart_postgres_data
+  cart_redis_data:
+    name: cart_redis_data
 
 networks:
   xshopai-network:

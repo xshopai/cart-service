@@ -8,7 +8,7 @@ This guide covers deploying the Cart Service to Azure Container Apps (ACA) with 
 
 - Azure CLI installed and authenticated
 - Docker installed
-- Maven installed
+- Node.js 20+ installed
 - Azure subscription with appropriate permissions
 - Azure Container Registry (ACR) created
 
@@ -49,7 +49,7 @@ ACR_NAME="acrxshopaiaca"
 ENVIRONMENT_NAME="cae-xshopai-aca"
 REDIS_NAME="redis-xshopai-aca"
 APP_NAME="cart-service"
-APP_PORT=1008
+APP_PORT=8008
 ```
 
 ### 2. Create Redis Cache
@@ -69,8 +69,9 @@ az redis create \
 # Login to ACR
 az acr login --name $ACR_NAME
 
-# Build with Maven
-./mvnw clean package -DskipTests
+# Install dependencies and build
+npm ci
+npm run build
 
 # Build Docker image
 docker build -t $ACR_NAME.azurecr.io/$APP_NAME:latest .
@@ -103,10 +104,10 @@ az containerapp create \
   --dapr-app-port $APP_PORT \
   --secrets "redis-key=$REDIS_KEY" \
   --env-vars \
-    "QUARKUS_PROFILE=prod" \
-    "QUARKUS_HTTP_PORT=$APP_PORT" \
-    "DAPR_HTTP_PORT=3500" \
-    "STATESTORE_NAME=statestore"
+    "NODE_ENV=production" \
+    "PORT=$APP_PORT" \
+    "DAPR_HTTP_PORT=3508" \
+    "DAPR_STATE_STORE_NAME=statestore"
 ```
 
 ### 5. Configure Dapr State Store
@@ -149,8 +150,8 @@ az containerapp env dapr-component set \
 │  ┌─────────────────────────────────────────────────┐   │
 │  │              cart-service                        │   │
 │  │  ┌─────────────┐    ┌──────────────────────┐   │   │
-│  │  │ Quarkus App │◄──►│  Dapr Sidecar        │   │   │
-│  │  │  Port 1008  │    │  Port 3500           │   │   │
+│  │  │ Node.js App │◄──►│  Dapr Sidecar        │   │   │
+│  │  │  Port 8008  │    │  Port 3508           │   │   │
 │  │  └─────────────┘    └──────────┬───────────┘   │   │
 │  └────────────────────────────────┼───────────────┘   │
 │                                   │                     │
@@ -171,12 +172,12 @@ az containerapp env dapr-component set \
 
 ### Environment Variables
 
-| Variable            | Description           | Default    |
-| ------------------- | --------------------- | ---------- |
-| `QUARKUS_HTTP_PORT` | HTTP server port      | 1008       |
-| `QUARKUS_PROFILE`   | Quarkus profile       | prod       |
-| `DAPR_HTTP_PORT`    | Dapr sidecar port     | 3500       |
-| `STATESTORE_NAME`   | Dapr state store name | statestore |
+| Variable                | Description              | Default      |
+| ----------------------- | ------------------------ | ------------ |
+| `PORT`                  | HTTP server port         | 8008         |
+| `NODE_ENV`              | Node.js environment      | production   |
+| `DAPR_HTTP_PORT`        | Dapr sidecar HTTP port   | 3508         |
+| `DAPR_STATE_STORE_NAME` | Dapr state store name    | statestore   |
 
 ### Scaling
 
@@ -206,7 +207,7 @@ az containerapp logs show \
 FQDN=$(az containerapp show --name $APP_NAME --resource-group $RESOURCE_GROUP --query "properties.configuration.ingress.fqdn" -o tsv)
 
 # Health check (from another container in the environment)
-curl https://$FQDN/health
+curl https://$FQDN/health/live
 ```
 
 ## Troubleshooting

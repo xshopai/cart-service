@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Cart Service - Run with direct Redis + RabbitMQ (local development)
+# Runtime: Node.js/TypeScript
 
 echo "Starting Cart Service (Direct Redis + RabbitMQ)..."
 echo "Service will be available at: http://localhost:8008"
@@ -18,16 +19,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$SERVICE_DIR"
 
-# Set JWT_SECRET environment variable for JWT validation
-export JWT_SECRET="8tDBDMcpxroHoHjXjk8xp/uAn8rzD4y8ZZremFkC4gI="
+# Install dependencies if needed
+if [ ! -d "node_modules" ]; then
+    echo "Installing dependencies..."
+    npm install
+fi
 
-# Copy dev configuration
-echo "Using application.properties.dev configuration..."
-cp src/main/resources/application.properties.http src/main/resources/application.properties
-
-# Make mvnw executable
-chmod +x ./mvnw
-
-# Run with Quarkus dev mode (config from application.properties)
-# -Dquarkus.test.continuous-testing=disabled prevents interactive prompts
-./mvnw quarkus:dev -Dquarkus.test.continuous-testing=disabled
+# Run with HTTP mode (direct Redis + RabbitMQ)
+echo "Starting in HTTP mode..."
+npm run dev:http

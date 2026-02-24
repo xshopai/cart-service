@@ -1,71 +1,84 @@
 # =============================================================================
-# Multi-stage Dockerfile for Java Quarkus Cart Service
+# Multi-stage Dockerfile for Node.js Cart Service
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# Build stage - Build the Quarkus application
+# Base stage - Common setup for all stages
 # -----------------------------------------------------------------------------
-FROM eclipse-temurin:21-jdk-alpine AS builder
-
+FROM node:24-alpine AS base
 WORKDIR /app
 
-# Copy Maven wrapper and pom.xml
-COPY mvnw mvnw.cmd ./
-COPY .mvn .mvn
-COPY pom.xml ./
-
-# Fix line endings (CRLF to LF) and make Maven wrapper executable
-RUN sed -i 's/\r$//' mvnw && chmod +x mvnw && ./mvnw dependency:go-offline -B
-
-# Copy source code
-COPY src ./src
-
-# Build the application (mvnw already has execute permission from previous step)
-RUN ./mvnw package -DskipTests -B
-
-# -----------------------------------------------------------------------------
-# Production stage - Optimized for production deployment
-# -----------------------------------------------------------------------------
-FROM eclipse-temurin:21-jre-alpine AS production
-
-# Install ca-certificates for HTTPS calls and wget for health checks
-RUN apk --no-cache add ca-certificates tzdata wget
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
 
 # Create non-root user
-RUN addgroup -g 1001 appgroup && \
-    adduser -D -s /bin/sh -u 1001 -G appgroup cartuser
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S cartuser -u 1001 -G nodejs
 
-WORKDIR /app
+# -----------------------------------------------------------------------------
+# Dependencies stage - Install all dependencies
+# -----------------------------------------------------------------------------
+FROM base AS dependencies
+COPY package*.json ./
+RUN npm ci --include=dev && npm cache clean --force
 
-# Copy the built artifact from builder
-COPY --from=builder --chown=cartuser:appgroup /app/target/quarkus-app/lib/ ./lib/
-COPY --from=builder --chown=cartuser:appgroup /app/target/quarkus-app/*.jar ./
-COPY --from=builder --chown=cartuser:appgroup /app/target/quarkus-app/app/ ./app/
-COPY --from=builder --chown=cartuser:appgroup /app/target/quarkus-app/quarkus/ ./quarkus/
+# -----------------------------------------------------------------------------
+# Development stage - For local development with hot reload
+# -----------------------------------------------------------------------------
+FROM dependencies AS development
 
-# Create logs directory
-RUN mkdir -p logs && chown -R cartuser:appgroup logs
+# Copy application code
+COPY . .
+
+# Development user
+USER cartuser
+
+# Expose port
+EXPOSE 8008
+
+# Start in development mode
+CMD ["npm", "run", "dev"]
+
+# -----------------------------------------------------------------------------
+# Build stage - Compile TypeScript
+# -----------------------------------------------------------------------------
+FROM dependencies AS build
+
+# Copy source code
+COPY . .
+
+# Build TypeScript
+RUN npm run build
+
+# Prune dev dependencies
+RUN npm prune --production
+
+# -----------------------------------------------------------------------------
+# Production stage - Final optimized image
+# -----------------------------------------------------------------------------
+FROM base AS production
+
+# Set production environment
+ENV NODE_ENV=production
+
+# Copy built application and production dependencies
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+
+# Set ownership to non-root user
+RUN chown -R cartuser:nodejs /app
 
 # Switch to non-root user
 USER cartuser
 
 # Expose port
-ENV QUARKUS_HTTP_PORT=8080
-EXPOSE 8080
+EXPOSE 8008
 
-# Health check (using wget GET request to /health/live)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD wget -qO- http://localhost:8080/health/live > /dev/null || exit 1
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || '8008') + '/health/live', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
-# Run the Quarkus application
-CMD ["java", "-jar", "quarkus-run.jar"]
-
-# Labels for better image management and security scanning
-LABEL maintainer="xshopai Team"
-LABEL service="cart-service"
-LABEL version="1.0.0"
-LABEL org.opencontainers.image.source="https://github.com/xshopai/xshopai"
-LABEL org.opencontainers.image.description="Cart Service for xshopai platform"
-LABEL org.opencontainers.image.vendor="xshopai"
-LABEL framework="quarkus"
-LABEL language="java"
+# Start application with dumb-init
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "dist/server.js"]

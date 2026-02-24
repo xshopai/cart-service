@@ -2,44 +2,61 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "dapr-debug",
+      "label": "dapr-start",
       "type": "shell",
-      "command": "dapr run --app-id cart-service --app-port 8008 --dapr-http-port 3500 --dapr-grpc-port 50001 --resources-path ./.dapr --config ./.dapr/config.yaml --log-level error -- ./mvnw quarkus:dev -Ddebug=5005 -Dsuspend=y",
+      "command": "dapr",
+      "args": [
+        "run",
+        "--app-id", "cart-service",
+        "--app-port", "8008",
+        "--dapr-http-port", "3508",
+        "--dapr-grpc-port", "50008",
+        "--resources-path", "./.dapr/components",
+        "--config", "./.dapr/config.yaml",
+        "--log-level", "warn"
+      ],
       "isBackground": true,
       "problemMatcher": {
-        "pattern": [
-          {
-            "regexp": ".",
-            "file": 1,
-            "location": 2,
-            "message": 3
-          }
-        ],
+        "pattern": {
+          "regexp": ".",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
         "background": {
           "activeOnStart": true,
           "beginsPattern": "^.*Starting Dapr.*",
-          "endsPattern": "^.*Listening for transport dt_socket.*"
+          "endsPattern": "^.*You're up and running.*"
         }
       }
     },
     {
-      "label": "dapr-down",
+      "label": "dapr-stop",
       "type": "shell",
-      "command": "dapr stop --app-id cart-service"
+      "command": "dapr",
+      "args": ["stop", "--app-id", "cart-service"]
     },
     {
-      "label": "Run with Dapr",
-      "type": "shell",
-      "command": "${workspaceFolder}/run.ps1",
-      "windows": {
-        "command": "${workspaceFolder}/run.ps1"
+      "label": "build",
+      "type": "npm",
+      "script": "build",
+      "group": {
+        "kind": "build",
+        "isDefault": true
       },
-      "linux": {
-        "command": "${workspaceFolder}/run.sh"
-      },
-      "osx": {
-        "command": "${workspaceFolder}/run.sh"
-      },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "dev",
+      "type": "npm",
+      "script": "dev",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "test",
+      "type": "npm",
+      "script": "test",
       "problemMatcher": []
     }
   ]

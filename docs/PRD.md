@@ -51,7 +51,7 @@ The Cart Service is a high-performance microservice within the xshopai e-commerc
 
 ### 1.4 Product Description
 
-The Cart Service is a Go/Gin microservice that manages shopping cart operations using Dapr State Management with Redis as the backing store. It supports both authenticated users and guest users, with seamless cart transfer functionality when guests create accounts or log in. The use of Dapr provides store abstraction, built-in concurrency control, and operational benefits like automatic retries and observability.
+The Cart Service is a Node.js/TypeScript microservice that manages shopping cart operations using Dapr State Management with Redis as the backing store. It supports both authenticated users and guest users, with seamless cart transfer functionality when guests create accounts or log in. The use of Dapr provides store abstraction, built-in concurrency control, and operational benefits like automatic retries and observability.
 
 ### 1.5 Target Users
 
@@ -79,14 +79,14 @@ The Cart Service is a Go/Gin microservice that manages shopping cart operations 
 
 ### 2.1 Technology Stack
 
-- **Runtime**: Go 1.21+
-- **Framework**: Gin Web Framework
-- **State Management**: Dapr State Management Building Block
+- **Runtime**: Node.js 20+ with TypeScript
+- **Framework**: Express.js
+- **State Management**: Dapr State Management Building Block (@dapr/dapr SDK)
 - **Backing Store**: Redis 7.0+ (via Dapr)
 - **Authentication**: JWT
-- **Logging**: Uber Zap (structured logging)
+- **Logging**: Structured logging via console/pino
 - **Observability**: OpenTelemetry, Jaeger
-- **Testing**: Testify, Go standard testing
+- **Testing**: Jest with TypeScript
 - **Documentation**: Swagger/OpenAPI 3.0
 
 ### 2.2 Architecture Pattern
@@ -96,7 +96,7 @@ The Cart Service is a Go/Gin microservice that manages shopping cart operations 
 ```
 ┌─────────────────┐
 │  Cart Service   │
-│   (Gin/Go)      │
+│ (Express/TS)    │
 └────────┬────────┘
          │
          ├─► Dapr Sidecar (state management)

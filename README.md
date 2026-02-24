@@ -1,6 +1,6 @@
 <div align="center">
 
-# í»’ Cart Service
+# ğŸ›’ Cart Service
 
 **High-performance shopping cart microservice for the xshopai e-commerce platform**
 
@@ -19,7 +19,7 @@
 
 ---
 
-## í¾¯ Overview
+## ğŸ¯ Overview
 
 The **Cart Service** is a high-performance microservice responsible for managing shopping cart operations across the xshopai platform. Built with Redis-backed state management via Dapr, it provides lightning-fast cart operations with support for both authenticated users and guest shoppers, seamless cart transfer functionality, and automatic cart expiration.
 
@@ -31,7 +31,7 @@ The **Cart Service** is a high-performance microservice responsible for managing
 <tr>
 <td width="50%">
 
-### í»’ Cart Management
+### ğŸ›’ Cart Management
 
 - Complete cart CRUD operations
 - Add, update, remove cart items
@@ -41,7 +41,7 @@ The **Cart Service** is a high-performance microservice responsible for managing
 </td>
 <td width="50%">
 
-### í±¤ Guest Support
+### ğŸ‘¤ Guest Support
 
 - Anonymous shopping without registration
 - Unique guest ID management
@@ -53,7 +53,7 @@ The **Cart Service** is a high-performance microservice responsible for managing
 <tr>
 <td width="50%">
 
-### í³¡ Event-Driven Architecture
+### ğŸ“¡ Event-Driven Architecture
 
 - CloudEvents 1.0 specification
 - Pub/sub messaging via Dapr
@@ -76,7 +76,7 @@ The **Cart Service** is a high-performance microservice responsible for managing
 
 ---
 
-## íº€ Getting Started
+## ğŸš€ Getting Started
 
 ### Prerequisites
 
@@ -102,7 +102,7 @@ curl http://localhost:8008/health/live
 ### Local Development Setup
 
 <details>
-<summary><b>í´§ Without Dapr (Simple Setup)</b></summary>
+<summary><b>ğŸ”§ Without Dapr (Simple Setup)</b></summary>
 
 ```bash
 # Install dependencies
@@ -119,7 +119,7 @@ docker run -d --name redis -p 6379:6379 redis:7-alpine
 npm run dev
 ```
 
-í³– See [Local Development Guide](docs/LOCAL_DEVELOPMENT.md) for detailed instructions.
+ğŸ“– See [Local Development Guide](docs/LOCAL_DEVELOPMENT.md) for detailed instructions.
 
 </details>
 
@@ -138,44 +138,44 @@ npm run dev:dapr
 .\scripts\dev.ps1      # Windows
 ```
 
-í³– See [Dapr Development Guide](docs/LOCAL_DEVELOPMENT.md#running-with-dapr) for detailed instructions.
+ğŸ“– See [Dapr Development Guide](docs/LOCAL_DEVELOPMENT.md#running-with-dapr) for detailed instructions.
 
 </details>
 
 ---
 
-## í³š Documentation
+## ğŸ“š Documentation
 
 | Document                                          | Description                                          |
 | :------------------------------------------------ | :--------------------------------------------------- |
-| í³˜ [Local Development](docs/LOCAL_DEVELOPMENT.md) | Step-by-step local setup guide                       |
+| ğŸ“˜ [Local Development](docs/LOCAL_DEVELOPMENT.md) | Step-by-step local setup guide                       |
 | â˜ï¸ [Azure Container Apps](docs/ACA_DEPLOYMENT.md) | Deploy to serverless containers with built-in Dapr   |
-| í³‹ [Product Requirements](docs/PRD.md)            | Complete API specification and business requirements |
+| ğŸ“‹ [Product Requirements](docs/PRD.md)            | Complete API specification and business requirements |
 
 ---
 
-## í´Œ API Reference
+## ğŸ”Œ API Reference
 
 ### Authenticated User Endpoints
 
-| Method   | Endpoint                   | Description            |
-| :------- | :------------------------- | :--------------------- |
-| `GET`    | `/api/v1/cart`             | Get user's cart        |
-| `POST`   | `/api/v1/cart/items`       | Add item to cart       |
-| `PUT`    | `/api/v1/cart/items/:sku`  | Update item quantity   |
-| `DELETE` | `/api/v1/cart/items/:sku`  | Remove item from cart  |
-| `DELETE` | `/api/v1/cart`             | Clear cart             |
-| `POST`   | `/api/v1/cart/transfer`    | Transfer guest cart    |
+| Method   | Endpoint                  | Description           |
+| :------- | :------------------------ | :-------------------- |
+| `GET`    | `/api/v1/cart`            | Get user's cart       |
+| `POST`   | `/api/v1/cart/items`      | Add item to cart      |
+| `PUT`    | `/api/v1/cart/items/:sku` | Update item quantity  |
+| `DELETE` | `/api/v1/cart/items/:sku` | Remove item from cart |
+| `DELETE` | `/api/v1/cart`            | Clear cart            |
+| `POST`   | `/api/v1/cart/transfer`   | Transfer guest cart   |
 
 ### Guest Endpoints
 
-| Method   | Endpoint                              | Description           |
-| :------- | :------------------------------------ | :-------------------- |
-| `GET`    | `/api/v1/guest/cart/:guestId`         | Get guest cart        |
-| `POST`   | `/api/v1/guest/cart/:guestId/items`   | Add item to guest cart|
-| `PUT`    | `/api/v1/guest/cart/:guestId/items/:sku` | Update guest item  |
-| `DELETE` | `/api/v1/guest/cart/:guestId/items/:sku` | Remove guest item  |
-| `DELETE` | `/api/v1/guest/cart/:guestId`         | Clear guest cart      |
+| Method   | Endpoint                                 | Description            |
+| :------- | :--------------------------------------- | :--------------------- |
+| `GET`    | `/api/v1/guest/cart/:guestId`            | Get guest cart         |
+| `POST`   | `/api/v1/guest/cart/:guestId/items`      | Add item to guest cart |
+| `PUT`    | `/api/v1/guest/cart/:guestId/items/:sku` | Update guest item      |
+| `DELETE` | `/api/v1/guest/cart/:guestId/items/:sku` | Remove guest item      |
+| `DELETE` | `/api/v1/guest/cart/:guestId`            | Clear guest cart       |
 
 ### Operational Endpoints
 
@@ -188,7 +188,7 @@ npm run dev:dapr
 
 ---
 
-## í·ª Testing
+## ğŸ§ª Testing
 
 We maintain high code quality standards with comprehensive test coverage.
 
@@ -216,81 +216,81 @@ npm run test:watch
 
 ---
 
-## í¿—ï¸ Project Structure
+## ğŸ—ï¸ Project Structure
 
 ```
 cart-service/
-â”œâ”€â”€ í³ src/                       # Application source code
-â”‚   â”œâ”€â”€ í³ controllers/           # REST API endpoints
-â”‚   â”œâ”€â”€ í³ services/              # Business logic layer
-â”‚   â”œâ”€â”€ í³ models/                # Cart data models
-â”‚   â”œâ”€â”€ í³ routes/                # Route definitions
-â”‚   â”œâ”€â”€ í³ middlewares/           # Authentication, logging
-â”‚   â”œâ”€â”€ í³ core/                  # Config, logger, errors
-â”‚   â”œâ”€â”€ í³„ app.ts                 # Express app setup
-â”‚   â””â”€â”€ í³„ server.ts              # Entry point
-â”œâ”€â”€ í³ tests/                     # Test suite
-â”‚   â””â”€â”€ í³ unit/                  # Unit tests
-â”œâ”€â”€ í³ .dapr/                     # Dapr configuration
-â”‚   â”œâ”€â”€ í³ components/            # State store, pub/sub config
-â”‚   â””â”€â”€ í³„ config.yaml            # Dapr runtime configuration
-â”œâ”€â”€ í³ docs/                      # Documentation
-â”œâ”€â”€ í³„ docker-compose.yml         # Local containerized environment
-â”œâ”€â”€ í³„ Dockerfile                 # Production container image
-â””â”€â”€ í³„ package.json               # Node.js dependencies
+â”œâ”€â”€ ğŸ“ src/                       # Application source code
+â”‚   â”œâ”€â”€ ğŸ“ controllers/           # REST API endpoints
+â”‚   â”œâ”€â”€ ğŸ“ services/              # Business logic layer
+â”‚   â”œâ”€â”€ ğŸ“ models/                # Cart data models
+â”‚   â”œâ”€â”€ ğŸ“ routes/                # Route definitions
+â”‚   â”œâ”€â”€ ğŸ“ middlewares/           # Authentication, logging
+â”‚   â”œâ”€â”€ ğŸ“ core/                  # Config, logger, errors
+â”‚   â”œâ”€â”€ ğŸ“„ app.ts                 # Express app setup
+â”‚   â””â”€â”€ ğŸ“„ server.ts              # Entry point
+â”œâ”€â”€ ğŸ“ tests/                     # Test suite
+â”‚   â””â”€â”€ ğŸ“ unit/                  # Unit tests
+â”œâ”€â”€ ğŸ“ .dapr/                     # Dapr configuration
+â”‚   â”œâ”€â”€ ğŸ“ components/            # State store, pub/sub config
+â”‚   â””â”€â”€ ğŸ“„ config.yaml            # Dapr runtime configuration
+â”œâ”€â”€ ğŸ“ docs/                      # Documentation
+â”œâ”€â”€ ğŸ“„ docker-compose.yml         # Local containerized environment
+â”œâ”€â”€ ğŸ“„ Dockerfile                 # Production container image
+â””â”€â”€ ğŸ“„ package.json               # Node.js dependencies
 ```
 
 ---
 
-## í´§ Technology Stack
+## ğŸ”§ Technology Stack
 
 | Category          | Technology                           |
 | :---------------- | :----------------------------------- |
-| í¿¢ Runtime        | Node.js 20+ with TypeScript          |
-| í¼ Framework      | Express 4.18+                        |
-| í·„ï¸ State Store    | Redis 7.0+ via Dapr State Management |
-| í³¨ Messaging      | Dapr Pub/Sub (RabbitMQ backend)      |
-| í³‹ Event Format   | CloudEvents 1.0 Specification        |
-| í´ Authentication | JWT Token validation                 |
-| í·ª Testing        | Jest with coverage reporting         |
-| í³Š Observability  | Structured logging                   |
+| ğŸŸ¢ Runtime        | Node.js 20+ with TypeScript          |
+| ğŸŒ Framework      | Express 4.18+                        |
+| ğŸ—„ï¸ State Store    | Redis 7.0+ via Dapr State Management |
+| ğŸ“¨ Messaging      | Dapr Pub/Sub (RabbitMQ backend)      |
+| ğŸ“‹ Event Format   | CloudEvents 1.0 Specification        |
+| ğŸ” Authentication | JWT Token validation                 |
+| ğŸ§ª Testing        | Jest with coverage reporting         |
+| ğŸ“Š Observability  | Structured logging                   |
 
 ---
 
 ## âš™ï¸ Configuration
 
-| Variable              | Description                 | Default       |
-| :-------------------- | :-------------------------- | :------------ |
-| `PORT`                | HTTP server port            | `8008`        |
-| `HOST`                | Server host                 | `0.0.0.0`     |
-| `NODE_ENV`            | Environment                 | `development` |
-| `CART_MAX_ITEMS`      | Max items per cart          | `50`          |
-| `CART_TTL_DAYS`       | Cart expiration (days)      | `30`          |
-| `GUEST_CART_TTL_DAYS` | Guest cart expiration       | `7`           |
-| `DAPR_HTTP_PORT`      | Dapr HTTP port              | `3508`        |
-| `DAPR_GRPC_PORT`      | Dapr gRPC port              | `50008`       |
-| `DAPR_STATE_STORE`    | Dapr state store name       | `statestore`  |
-| `DAPR_PUBSUB_NAME`    | Dapr pub/sub name           | `pubsub`      |
+| Variable              | Description            | Default       |
+| :-------------------- | :--------------------- | :------------ |
+| `PORT`                | HTTP server port       | `8008`        |
+| `HOST`                | Server host            | `0.0.0.0`     |
+| `NODE_ENV`            | Environment            | `development` |
+| `CART_MAX_ITEMS`      | Max items per cart     | `50`          |
+| `CART_TTL_DAYS`       | Cart expiration (days) | `30`          |
+| `GUEST_CART_TTL_DAYS` | Guest cart expiration  | `7`           |
+| `DAPR_HTTP_PORT`      | Dapr HTTP port         | `3508`        |
+| `DAPR_GRPC_PORT`      | Dapr gRPC port         | `50008`       |
+| `DAPR_STATE_STORE`    | Dapr state store name  | `statestore`  |
+| `DAPR_PUBSUB_NAME`    | Dapr pub/sub name      | `pubsub`      |
 
 ---
 
 ## âš¡ Quick Reference
 
 ```bash
-# í°³ Docker Compose
+# ğŸ³ Docker Compose
 docker-compose up -d              # Start all services
 docker-compose down               # Stop all services
 docker-compose logs -f cart       # View logs
 
-# í¿¢ Local Development
+# ğŸŸ¢ Local Development
 npm run dev                       # Run without Dapr
 npm run dev:dapr                  # Run with Dapr sidecar
 
-# í·ª Testing
+# ğŸ§ª Testing
 npm test                          # Run all tests
 npm run test:coverage             # Run with coverage
 
-# í´ Health Check
+# ğŸ” Health Check
 curl http://localhost:8008/health/live
 curl http://localhost:8008/health/ready
 curl http://localhost:8008/info
@@ -298,21 +298,21 @@ curl http://localhost:8008/info
 
 ---
 
-## í³¡ Events Published
+## ğŸ“¡ Events Published
 
 The cart service publishes CloudEvents to the `pubsub` component:
 
-| Topic                | Description              |
-| :------------------- | :----------------------- |
-| `cart.item.added`    | Item added to cart       |
-| `cart.item.updated`  | Item quantity updated    |
-| `cart.item.removed`  | Item removed from cart   |
-| `cart.cleared`       | Cart cleared             |
-| `cart.transferred`   | Guest cart transferred   |
+| Topic               | Description            |
+| :------------------ | :--------------------- |
+| `cart.item.added`   | Item added to cart     |
+| `cart.item.updated` | Item quantity updated  |
+| `cart.item.removed` | Item removed from cart |
+| `cart.cleared`      | Cart cleared           |
+| `cart.transferred`  | Guest cart transferred |
 
 ---
 
-## í´ Contributing
+## ğŸ¤ Contributing
 
 We welcome contributions! Please follow these steps:
 
@@ -345,18 +345,18 @@ Please ensure your PR:
 
 ---
 
-## í¶˜ Support
+## ğŸ†˜ Support
 
 | Resource         | Link                                                                      |
 | :--------------- | :------------------------------------------------------------------------ |
-| í°› Bug Reports   | [GitHub Issues](https://github.com/xshopai/cart-service/issues)           |
-| í³– Documentation | [docs/](docs/)                                                            |
-| í³‹ API Reference | [docs/PRD.md](docs/PRD.md)                                                |
-| í²¬ Discussions   | [GitHub Discussions](https://github.com/xshopai/cart-service/discussions) |
+| ğŸ› Bug Reports   | [GitHub Issues](https://github.com/xshopai/cart-service/issues)           |
+| ğŸ“– Documentation | [docs/](docs/)                                                            |
+| ğŸ“‹ API Reference | [docs/PRD.md](docs/PRD.md)                                                |
+| ğŸ’¬ Discussions   | [GitHub Discussions](https://github.com/xshopai/cart-service/discussions) |
 
 ---
 
-## í³„ License
+## ğŸ“„ License
 
 This project is part of the **xshopai** e-commerce platform.  
 Licensed under the MIT License - see [LICENSE](LICENSE) for details.

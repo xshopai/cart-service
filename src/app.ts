@@ -11,6 +11,7 @@ import { errorHandler } from './controllers/cart.controller.js';
 import cartRoutes from './routes/cart.routes.js';
 import operationalRoutes from './routes/operational.routes.js';
 import daprRoutes from './routes/dapr.routes.js';
+import homeRoutes from './routes/home.routes.js';
 import daprService from './services/dapr.service.js';
 
 const app = express();
@@ -57,6 +58,9 @@ app.use((req, res, next) => {
 // ============================================
 // Routes
 // ============================================
+
+// Home routes (root endpoint)
+app.use(homeRoutes);
 
 // Dapr routes (must be first for Azure Container Apps)
 app.use(daprRoutes);

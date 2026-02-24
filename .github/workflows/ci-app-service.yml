@@ -186,20 +186,14 @@ jobs:
 
       - name: Configure Quarkus settings
         run: |
-          # Clear any custom startup command - let Azure auto-detect
+          # Set Quarkus startup command for fast-jar format
+          # Azure App Service requires explicit startup command for Quarkus
           az webapp config set \
             --name "$APP_NAME" \
             --resource-group "$RESOURCE_GROUP" \
-            --startup-file ""
+            --startup-file "java -Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8080 -jar quarkus-run.jar"
 
-          # Set environment variables for Quarkus
-          az webapp config appsettings set \
-            --name "$APP_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
-            --settings \
-              JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=8080"
-
-          echo "Configuration updated - Azure will auto-detect quarkus-run.jar"
+          echo "Configured Quarkus startup command: java -jar quarkus-run.jar"
 
       # -------------------------------------------------------------------
       # Health check

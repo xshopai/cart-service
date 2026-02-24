@@ -23,7 +23,7 @@ export JWT_SECRET="8tDBDMcpxroHoHjXjk8xp/uAn8rzD4y8ZZremFkC4gI="
 
 # Copy dev configuration
 echo "Using application.properties.dev configuration..."
-cp src/main/resources/application.properties.dev src/main/resources/application.properties
+cp src/main/resources/application.properties.http src/main/resources/application.properties
 
 # Make mvnw executable
 chmod +x ./mvnw

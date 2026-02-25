@@ -25,6 +25,15 @@ interface Config {
     allowedMethods: string[];
     allowCredentials: boolean;
   };
+  serviceInvocation: {
+    mode: 'dapr' | 'http';
+  };
+  redis: {
+    host: string;
+    port: number;
+    password: string;
+    tls: boolean;
+  };
   dapr: {
     httpPort: number;
     grpcPort: number;
@@ -63,6 +72,16 @@ const config: Config = {
     allowedOrigins: (process.env.CORS_ALLOWED_ORIGINS || '*').split(',').map(s => s.trim()),
     allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowCredentials: process.env.CORS_ALLOW_CREDENTIALS === 'true',
+  },
+  serviceInvocation: {
+    // 'dapr' for Container Apps/K8s, 'http' for App Service
+    mode: (process.env.SERVICE_INVOCATION_MODE || 'dapr') as 'dapr' | 'http',
+  },
+  redis: {
+    host: process.env.REDIS_HOST || '',
+    port: parseInt(process.env.REDIS_PORT || '6380', 10),
+    password: process.env.REDIS_PASSWORD || '',
+    tls: process.env.REDIS_TLS !== 'false', // Default to true for Azure Redis
   },
   dapr: {
     httpPort: parseInt(process.env.DAPR_HTTP_PORT || '3508', 10),

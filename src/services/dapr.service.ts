@@ -180,6 +180,20 @@ class DaprService {
   }
 
   /**
+   * Check Dapr state store health
+   */
+  async checkHealth(): Promise<boolean> {
+    try {
+      const client = this.getClient();
+      // Try to get a non-existent key to verify connectivity
+      await client.state.get(this.stateStoreName, '__health_check__');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Close Dapr client
    */
   async close(): Promise<void> {

@@ -5,7 +5,7 @@ import config from '../core/config.js';
 import logger from '../core/logger.js';
 import { BadRequestError, NotFoundError } from '../core/errors.js';
 import { Cart, CartItem, AddItemRequest, createCart, createCartItem, recalculateTotals } from '../models/cart.model.js';
-import daprService from './dapr.service.js';
+import storageService from './storage.factory.js';
 
 class CartService {
   private readonly maxItems: number;
@@ -26,14 +26,14 @@ class CartService {
   async getCart(userId: string): Promise<Cart> {
     logger.debug('Getting cart', { userId });
 
-    let cart = await daprService.getState(userId);
+    let cart = await storageService.getState(userId);
 
     if (!cart) {
       // Create new empty cart
       const isGuest = userId.startsWith('guest-');
       const ttl = isGuest ? this.guestTtlDays : this.ttlDays;
       cart = createCart(userId, ttl);
-      await daprService.saveState(cart);
+      await storageService.saveState(cart);
 
       logger.info('Created new cart', { userId, isGuest, ttlDays: ttl });
     }
@@ -61,7 +61,7 @@ class CartService {
     }
 
     // Get or create cart
-    let cart = await daprService.getState(userId);
+    let cart = await storageService.getState(userId);
 
     if (!cart) {
       const ttl = isGuest ? this.guestTtlDays : this.ttlDays;
@@ -109,13 +109,13 @@ class CartService {
 
     // Recalculate totals and save
     recalculateTotals(cart);
-    await daprService.saveState(cart);
+    await storageService.saveState(cart);
 
     // Find the added/updated item for event
     const addedItem = cart.items.find((item) => item.sku === request.sku);
 
     // Publish event with comprehensive data matching Quarkus implementation
-    await daprService.publishEvent('cart.item.added', {
+    await storageService.publishEvent('cart.item.added', {
       userId,
       cartId: userId,
       productId: request.productId,
@@ -157,7 +157,7 @@ class CartService {
       throw new BadRequestError(`Maximum quantity per item (${this.maxItemQuantity}) exceeded`);
     }
 
-    const cart = await daprService.getState(userId);
+    const cart = await storageService.getState(userId);
 
     if (!cart) {
       throw new NotFoundError('Cart not found');
@@ -176,7 +176,7 @@ class CartService {
       logger.debug('Removed item from cart', { userId, sku });
 
       // Publish event with comprehensive data
-      await daprService.publishEvent('cart.item.removed', {
+      await storageService.publishEvent('cart.item.removed', {
         userId,
         cartId: userId,
         productId: removedItem.productId,
@@ -198,7 +198,7 @@ class CartService {
       logger.debug('Updated item quantity', { userId, sku, oldQuantity, newQuantity: quantity });
 
       // Publish event with comprehensive data
-      await daprService.publishEvent('cart.item.updated', {
+      await storageService.publishEvent('cart.item.updated', {
         userId,
         cartId: userId,
         productId: item.productId,
@@ -217,7 +217,7 @@ class CartService {
 
     // Recalculate totals and save
     recalculateTotals(cart);
-    await daprService.saveState(cart);
+    await storageService.saveState(cart);
 
     logger.info('Cart item updated', {
       userId,
@@ -236,7 +236,7 @@ class CartService {
   async removeItem(userId: string, sku: string): Promise<Cart> {
     logger.debug('Removing item from cart', { userId, sku });
 
-    const cart = await daprService.getState(userId);
+    const cart = await storageService.getState(userId);
 
     if (!cart) {
       throw new NotFoundError('Cart not found');
@@ -252,10 +252,10 @@ class CartService {
 
     // Recalculate totals and save
     recalculateTotals(cart);
-    await daprService.saveState(cart);
+    await storageService.saveState(cart);
 
     // Publish event with comprehensive data
-    await daprService.publishEvent('cart.item.removed', {
+    await storageService.publishEvent('cart.item.removed', {
       userId,
       cartId: userId,
       productId: removedItem.productId,
@@ -285,14 +285,14 @@ class CartService {
     logger.debug('Clearing cart', { userId });
 
     // Get cart details before clearing for event payload
-    const cart = await daprService.getState(userId);
+    const cart = await storageService.getState(userId);
     const itemCount = cart?.items?.length || 0;
     const totalAmount = cart?.totalPrice || 0;
 
-    await daprService.deleteState(userId);
+    await storageService.deleteState(userId);
 
     // Publish event with comprehensive data matching Quarkus implementation
-    await daprService.publishEvent('cart.cleared', {
+    await storageService.publishEvent('cart.cleared', {
       userId,
       cartId: userId,
       clearedItemCount: itemCount,
@@ -310,7 +310,7 @@ class CartService {
     logger.debug('Transferring cart', { guestId, userId });
 
     // Get guest cart
-    const guestCart = await daprService.getState(guestId);
+    const guestCart = await storageService.getState(guestId);
 
     if (!guestCart || guestCart.items.length === 0) {
       logger.debug('No guest cart to transfer', { guestId, userId });
@@ -318,7 +318,7 @@ class CartService {
     }
 
     // Get or create user cart
-    let userCart = await daprService.getState(userId);
+    let userCart = await storageService.getState(userId);
 
     if (!userCart) {
       userCart = createCart(userId, this.ttlDays);
@@ -346,11 +346,11 @@ class CartService {
     userCart.expiresAt = Date.now() + this.ttlDays * 24 * 60 * 60 * 1000;
 
     // Save user cart and delete guest cart
-    await daprService.saveState(userCart);
-    await daprService.deleteState(guestId);
+    await storageService.saveState(userCart);
+    await storageService.deleteState(guestId);
 
     // Publish event with comprehensive data matching Quarkus implementation
-    await daprService.publishEvent('cart.transferred', {
+    await storageService.publishEvent('cart.transferred', {
       fromGuestId: guestId,
       toUserId: userId,
       transferredItemCount: guestCart.items.length,

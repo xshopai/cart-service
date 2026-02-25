@@ -9,6 +9,7 @@ import { Cart } from '../models/cart.model.js';
 
 class RedisService {
   private client: Redis | null = null;
+  private isConnecting: boolean = false;
   private readonly serviceName: string;
 
   constructor() {
@@ -16,30 +17,58 @@ class RedisService {
   }
 
   /**
-   * Get or create Redis client (lazy initialization)
+   * Get or create Redis client with proper reconnection handling
    */
-  private getClient(): Redis {
-    if (!this.client) {
+  private async getClient(): Promise<Redis> {
+    // If client exists and is ready, return it
+    if (this.client && (this.client.status as string) === 'ready') {
+      return this.client;
+    }
+
+    // If client exists but is closed/end, reset it
+    if (this.client && (this.client.status === 'close' || this.client.status === 'end')) {
+      logger.info('Redis client was closed, recreating...');
+      this.client = null;
+    }
+
+    // Create new client if needed
+    if (!this.client && !this.isConnecting) {
+      this.isConnecting = true;
       const redisConfig = config.redis;
 
       if (!redisConfig.host) {
+        this.isConnecting = false;
         throw new Error('Redis host not configured. Set REDIS_HOST environment variable.');
       }
+
+      logger.info('Creating Redis client', {
+        operation: 'redis_init',
+        host: redisConfig.host,
+        port: redisConfig.port,
+        tls: redisConfig.tls,
+      });
 
       this.client = new Redis({
         host: redisConfig.host,
         port: redisConfig.port,
         password: redisConfig.password || undefined,
-        tls: redisConfig.tls ? {} : undefined,
-        lazyConnect: false,
-        connectTimeout: 10000,
+        tls: redisConfig.tls ? { rejectUnauthorized: false } : undefined,
+        lazyConnect: true, // Connect manually to handle errors
+        connectTimeout: 15000,
+        commandTimeout: 10000,
         maxRetriesPerRequest: 3,
+        enableReadyCheck: true,
+        enableOfflineQueue: true,
         retryStrategy: (times: number) => {
-          if (times > 3) {
-            logger.error('Redis connection failed after 3 retries');
-            return null;
-          }
-          return Math.min(times * 200, 2000);
+          // Always retry with exponential backoff, cap at 5 seconds
+          const delay = Math.min(times * 500, 5000);
+          logger.warn(`Redis reconnecting, attempt ${times}, delay ${delay}ms`);
+          return delay;
+        },
+        reconnectOnError: (err) => {
+          // Reconnect on connection reset or timeout
+          const targetErrors = ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED'];
+          return targetErrors.some(e => err.message.includes(e));
         },
       });
 
@@ -51,6 +80,11 @@ class RedisService {
         });
       });
 
+      this.client.on('ready', () => {
+        logger.info('Redis client ready', { operation: 'redis_ready' });
+        this.isConnecting = false;
+      });
+
       this.client.on('error', (err) => {
         logger.error('Redis client error', {
           operation: 'redis_error',
@@ -58,13 +92,45 @@ class RedisService {
         });
       });
 
-      logger.info('Redis client initialized', {
-        operation: 'redis_init',
-        host: redisConfig.host,
-        port: redisConfig.port,
-        tls: redisConfig.tls,
+      this.client.on('close', () => {
+        logger.warn('Redis connection closed', { operation: 'redis_close' });
       });
+
+      this.client.on('end', () => {
+        logger.warn('Redis connection ended', { operation: 'redis_end' });
+        this.isConnecting = false;
+      });
+
+      // Manually connect and wait for ready
+      try {
+        await this.client.connect();
+      } catch (err) {
+        this.isConnecting = false;
+        logger.error('Redis connect failed', {
+          operation: 'redis_connect_error',
+          error: err instanceof Error ? err.message : String(err),
+        });
+        throw err;
+      }
     }
+
+    // Wait for client to be ready if connecting
+    if (this.client && (this.client.status as string) !== 'ready') {
+      // Wait up to 10 seconds for ready state
+      const maxWait = 10000;
+      const startTime = Date.now();
+      while ((this.client.status as string) !== 'ready' && (Date.now() - startTime) < maxWait) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      if ((this.client.status as string) !== 'ready') {
+        throw new Error(`Redis not ready after ${maxWait}ms, status: ${this.client.status}`);
+      }
+    }
+
+    if (!this.client) {
+      throw new Error('Failed to create Redis client');
+    }
+
     return this.client;
   }
 
@@ -80,7 +146,7 @@ class RedisService {
    */
   async getState(userId: string): Promise<Cart | null> {
     try {
-      const client = this.getClient();
+      const client = await this.getClient();
       const key = this.getCartKey(userId);
 
       const data = await client.get(key);
@@ -107,7 +173,7 @@ class RedisService {
    */
   async saveState(cart: Cart): Promise<void> {
     try {
-      const client = this.getClient();
+      const client = await this.getClient();
       const key = this.getCartKey(cart.userId);
 
       // Calculate TTL in seconds
@@ -137,7 +203,7 @@ class RedisService {
    */
   async deleteState(userId: string): Promise<void> {
     try {
-      const client = this.getClient();
+      const client = await this.getClient();
       const key = this.getCartKey(userId);
 
       await client.del(key);
@@ -158,7 +224,7 @@ class RedisService {
    */
   async checkHealth(): Promise<boolean> {
     try {
-      const client = this.getClient();
+      const client = await this.getClient();
       const result = await client.ping();
       return result === 'PONG';
     } catch {

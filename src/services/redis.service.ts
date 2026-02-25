@@ -9,8 +9,8 @@ import { Cart } from '../models/cart.model.js';
 
 class RedisService {
   private client: Redis | null = null;
-  private isConnecting: boolean = false;
   private readonly serviceName: string;
+  private initPromise: Promise<Redis> | null = null;
 
   constructor() {
     this.serviceName = config.service.name;
@@ -20,25 +20,40 @@ class RedisService {
    * Get or create Redis client with proper reconnection handling
    */
   private async getClient(): Promise<Redis> {
-    // If client exists and is ready, return it
+    // Return existing client if ready
     if (this.client && (this.client.status as string) === 'ready') {
       return this.client;
     }
 
-    // If client exists but is closed/end, reset it
-    if (this.client && (this.client.status === 'close' || this.client.status === 'end')) {
-      logger.info('Redis client was closed, recreating...');
+    // If already initializing, wait for it
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
+    // If client exists but is closed, dispose it
+    if (this.client && (this.client.status === 'end' || this.client.status === 'close')) {
+      this.client.disconnect();
       this.client = null;
     }
 
-    // Create new client if needed
-    if (!this.client && !this.isConnecting) {
-      this.isConnecting = true;
+    // Create new client
+    this.initPromise = this.createClient();
+    
+    try {
+      this.client = await this.initPromise;
+      return this.client;
+    } finally {
+      this.initPromise = null;
+    }
+  }
+
+  private createClient(): Promise<Redis> {
+    return new Promise((resolve, reject) => {
       const redisConfig = config.redis;
 
       if (!redisConfig.host) {
-        this.isConnecting = false;
-        throw new Error('Redis host not configured. Set REDIS_HOST environment variable.');
+        reject(new Error('Redis host not configured. Set REDIS_HOST environment variable.'));
+        return;
       }
 
       logger.info('Creating Redis client', {
@@ -48,97 +63,54 @@ class RedisService {
         tls: redisConfig.tls,
       });
 
-      // Azure Redis Cache requires specific TLS configuration
-      const tlsOptions = redisConfig.tls ? {
-        servername: redisConfig.host,
-        minVersion: 'TLSv1.2' as const,
-        rejectUnauthorized: true, // Azure certs are valid, don't bypass
-      } : undefined;
-
-      this.client = new Redis({
+      const client = new Redis({
         host: redisConfig.host,
         port: redisConfig.port,
         password: redisConfig.password || undefined,
-        tls: tlsOptions,
-        lazyConnect: true, // Connect manually to handle errors
-        connectTimeout: 15000,
+        tls: redisConfig.tls ? {
+          servername: redisConfig.host,
+          rejectUnauthorized: false, // Azure Redis sometimes needs this
+        } : undefined,
+        connectTimeout: 20000,
         commandTimeout: 10000,
         maxRetriesPerRequest: 3,
         enableReadyCheck: true,
-        enableOfflineQueue: true,
+        enableOfflineQueue: false, // Fail fast if not connected
         retryStrategy: (times: number) => {
-          // Always retry with exponential backoff, cap at 5 seconds
-          const delay = Math.min(times * 500, 5000);
+          // Always retry with exponential backoff, cap at 10 seconds
+          const delay = Math.min(times * 1000, 10000);
           logger.warn(`Redis reconnecting, attempt ${times}, delay ${delay}ms`);
           return delay;
         },
-        reconnectOnError: (err) => {
-          // Reconnect on connection reset or timeout
-          const targetErrors = ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED'];
-          return targetErrors.some(e => err.message.includes(e));
-        },
       });
 
-      this.client.on('connect', () => {
-        logger.info('Redis client connected', {
-          operation: 'redis_connect',
+      client.on('ready', () => {
+        logger.info('Redis client ready', {
+          operation: 'redis_ready',
           host: redisConfig.host,
-          port: redisConfig.port,
         });
+        resolve(client);
       });
 
-      this.client.on('ready', () => {
-        logger.info('Redis client ready', { operation: 'redis_ready' });
-        this.isConnecting = false;
-      });
-
-      this.client.on('error', (err) => {
+      client.on('error', (err) => {
         logger.error('Redis client error', {
           operation: 'redis_error',
           error: err.message,
         });
+        // Don't reject on error - let retry strategy handle it
       });
 
-      this.client.on('close', () => {
+      client.on('close', () => {
         logger.warn('Redis connection closed', { operation: 'redis_close' });
       });
 
-      this.client.on('end', () => {
-        logger.warn('Redis connection ended', { operation: 'redis_end' });
-        this.isConnecting = false;
-      });
-
-      // Manually connect and wait for ready
-      try {
-        await this.client.connect();
-      } catch (err) {
-        this.isConnecting = false;
-        logger.error('Redis connect failed', {
-          operation: 'redis_connect_error',
-          error: err instanceof Error ? err.message : String(err),
-        });
-        throw err;
-      }
-    }
-
-    // Wait for client to be ready if connecting
-    if (this.client && (this.client.status as string) !== 'ready') {
-      // Wait up to 10 seconds for ready state
-      const maxWait = 10000;
-      const startTime = Date.now();
-      while ((this.client.status as string) !== 'ready' && (Date.now() - startTime) < maxWait) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      if ((this.client.status as string) !== 'ready') {
-        throw new Error(`Redis not ready after ${maxWait}ms, status: ${this.client.status}`);
-      }
-    }
-
-    if (!this.client) {
-      throw new Error('Failed to create Redis client');
-    }
-
-    return this.client;
+      // Timeout for initial connection
+      setTimeout(() => {
+        if ((client.status as string) !== 'ready') {
+          reject(new Error(`Redis connection timeout, status: ${client.status}`));
+        }
+      }, 25000);
+    });
   }
 
   /**

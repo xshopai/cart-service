@@ -1,0 +1,16 @@
+<step title="Incoming Request" date="2026-02-24T16:06:55.187" instance="84987d" url="/api/publish?async=true&amp;deployer=GITHUB_ONE_DEPLOY&amp;type=zip&amp;message=%7B%22type%22%3A%22deployment%22%2C%22sha%22%3A%227fe5e832ff8271f31209f2aca2f2045dab284fe2%22%2C%22repoName%22%3A%22xshopai%2Fcart-service%22%2C%22actor%22%3A%22prasadhonrao%22%2C%22slotName%22%3A%22production%22%2C%22commitMessage%22%3A%22%22%7D" method="POST" type="request" pid="851,1,17" Host="app-cart-service-xshopai-development.scm.azurewebsites.net" User-Agent="GITHUBACTIONS_DeployWebAppToAzure_51e58695901c2349472593d47aa07e760428b1f45c8b4bb515e294c7b564ea09" Authorization="Bea..." Content-Type="application/octet-stream" Cookie="ARRAffinity=84987d31f74c131230167cfa6dc666c0e319b4d4a125faa6a379281f05ae2d9e;Path=/;HttpOnly;Secure;Domain=app-cart-service-xshopai-development.scm.azurewebsites.net; ARRAffinitySameSite=84987d31f74c131230167cfa6dc666c0e319b4d4a125faa6a379281f05ae2d9e;Path=/;HttpOnly;SameSite=None;Secure;Domain=app-cart-service-xshopai-development.scm.azurewebsites.net" Transfer-Encoding="chunked" X-ARR-LOG-ID="de4eda63-ca8b-4944-8ef7-8b0050c49fac" CLIENT-IP="52.240.186.21:22568" X-SITE-DEPLOYMENT-ID="app-cart-service-xshopai-development" WAS-DEFAULT-HOSTNAME="app-cart-service-xshopai-development.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/publish?async=true&amp;deployer=GITHUB_ONE_DEPLOY&amp;type=zip&amp;message=%7B%22type%22%3A%22deployment%22%2C%22sha%22%3A%227fe5e832ff8271f31209f2aca2f2045dab284fe2%22%2C%22repoName%22%3A%22xshopai%2Fcart-service%22%2C%22actor%22%3A%22prasadhonrao%22%2C%22slotName%22%3A%22production%22%2C%22commitMessage%22%3A%22%22%7D" X-Client-IP="52.240.186.21" X-Client-Port="22568" >
+  <step title="OneDeploy" date="2026-02-24T16:06:55.219" >
+    <step title="None repository commit" date="2026-02-24T16:06:55.224" >
+      <step title="Commit id: f410ff0a-4cfa-4618-ae06-e1798e6a183d" date="2026-02-24T16:06:55.226" Message="N/A" AuthorName="N/A" AuthorEmail="N/A" /><!-- duration: 2ms -->
+    </step><!-- duration: 5ms -->
+    <step title="Starting PushDeployAsync" date="2026-02-24T16:06:55.231" /><!-- duration: 1ms -->
+    <step title="Writing artifact to /tmp/zipdeploy/b1419c0a-ada0-4ece-9bdb-3dc6fc900187.zip" date="2026-02-24T16:06:55.239" >
+      <step title="Writing multipart request body to /tmp/zipdeploy/b1419c0a-ada0-4ece-9bdb-3dc6fc900187.zip" date="2026-02-24T16:06:55.241" /><!-- duration: 1ms -->
+    </step><!-- duration: 2991ms -->
+    <step title="Start deployment in the background" date="2026-02-24T16:06:58.238" >
+      <step title="Acquiring Deployment Lock" date="2026-02-24T16:06:58.252" /><!-- duration: 1ms -->
+      <step title="Acquired Deployment Lock" date="2026-02-24T16:06:58.281" /><!-- duration: 1ms -->
+    </step><!-- duration: 98ms -->
+  </step><!-- duration: 3123ms -->
+  <step title="Outgoing response" date="2026-02-24T16:06:58.348" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 1ms -->
+</step><!-- duration: 3164ms -->

@@ -48,11 +48,18 @@ class RedisService {
         tls: redisConfig.tls,
       });
 
+      // Azure Redis Cache requires specific TLS configuration
+      const tlsOptions = redisConfig.tls ? {
+        servername: redisConfig.host,
+        minVersion: 'TLSv1.2' as const,
+        rejectUnauthorized: true, // Azure certs are valid, don't bypass
+      } : undefined;
+
       this.client = new Redis({
         host: redisConfig.host,
         port: redisConfig.port,
         password: redisConfig.password || undefined,
-        tls: redisConfig.tls ? { rejectUnauthorized: false } : undefined,
+        tls: tlsOptions,
         lazyConnect: true, // Connect manually to handle errors
         connectTimeout: 15000,
         commandTimeout: 10000,

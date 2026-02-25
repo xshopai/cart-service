@@ -38,7 +38,7 @@ class RedisService {
 
     // Create new client
     this.initPromise = this.createClient();
-    
+
     try {
       this.client = await this.initPromise;
       return this.client;
@@ -68,10 +68,12 @@ class RedisService {
         port: redisConfig.port,
         // Don't specify username - let ioredis use AUTH <password> format
         password: redisConfig.password || undefined,
-        tls: redisConfig.tls ? {
-          servername: redisConfig.host,
-          rejectUnauthorized: false, // Azure Redis sometimes needs this
-        } : undefined,
+        tls: redisConfig.tls
+          ? {
+              servername: redisConfig.host,
+              rejectUnauthorized: false, // Azure Redis sometimes needs this
+            }
+          : undefined,
         connectTimeout: 20000,
         commandTimeout: 10000,
         maxRetriesPerRequest: 3,

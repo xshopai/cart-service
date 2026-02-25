@@ -69,7 +69,7 @@ const config: Config = {
     guestTtlDays: parseInt(process.env.GUEST_CART_TTL_DAYS || '7', 10),
   },
   cors: {
-    allowedOrigins: (process.env.CORS_ALLOWED_ORIGINS || '*').split(',').map(s => s.trim()),
+    allowedOrigins: (process.env.CORS_ALLOWED_ORIGINS || '*').split(',').map((s) => s.trim()),
     allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowCredentials: process.env.CORS_ALLOW_CREDENTIALS === 'true',
   },

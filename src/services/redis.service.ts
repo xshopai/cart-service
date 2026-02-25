@@ -66,7 +66,7 @@ class RedisService {
       const client = new Redis({
         host: redisConfig.host,
         port: redisConfig.port,
-        username: undefined, // Azure Redis Cache access key auth - no username
+        // Don't specify username - let ioredis use AUTH <password> format
         password: redisConfig.password || undefined,
         tls: redisConfig.tls ? {
           servername: redisConfig.host,

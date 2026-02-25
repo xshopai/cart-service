@@ -80,7 +80,7 @@ const config: Config = {
   redis: {
     host: process.env.REDIS_HOST || '',
     port: parseInt(process.env.REDIS_PORT || '6380', 10),
-    password: process.env.REDIS_PASSWORD || '',
+    password: process.env.REDIS_KEY || process.env.REDIS_PASSWORD || '', // REDIS_KEY from Key Vault reference
     tls: process.env.REDIS_TLS !== 'false', // Default to true for Azure Redis
   },
   dapr: {

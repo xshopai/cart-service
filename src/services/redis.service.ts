@@ -66,6 +66,7 @@ class RedisService {
       const client = new Redis({
         host: redisConfig.host,
         port: redisConfig.port,
+        username: undefined, // Azure Redis Cache access key auth - no username
         password: redisConfig.password || undefined,
         tls: redisConfig.tls ? {
           servername: redisConfig.host,
@@ -76,6 +77,7 @@ class RedisService {
         maxRetriesPerRequest: 3,
         enableReadyCheck: true,
         enableOfflineQueue: false, // Fail fast if not connected
+        lazyConnect: false,
         retryStrategy: (times: number) => {
           // Always retry with exponential backoff, cap at 10 seconds
           const delay = Math.min(times * 1000, 10000);

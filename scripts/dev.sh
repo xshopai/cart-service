@@ -19,6 +19,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$SERVICE_DIR"
 
+# Copy .env.http to .env for local development (HTTP mode, no Dapr)
+if [ -f ".env.http" ]; then
+    cp ".env.http" ".env"
+    echo "✅ Copied .env.http → .env"
+fi
+
 # Install dependencies if needed
 if [ ! -d "node_modules" ]; then
     echo "Installing dependencies..."

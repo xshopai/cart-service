@@ -53,3 +53,6 @@ pids/
 # Debug
 .vscode/launch.json
 cart-logs*
+
+# Runtime env — generated from .env.http or .env.dapr at startup, never committed
+.env

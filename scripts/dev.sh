@@ -33,4 +33,4 @@ fi
 
 # Run with HTTP mode (direct Redis + RabbitMQ)
 echo "Starting in HTTP mode..."
-npm run dev:http
+npm run dev

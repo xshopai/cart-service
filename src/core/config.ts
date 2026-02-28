@@ -26,7 +26,7 @@ interface Config {
     allowCredentials: boolean;
   };
   serviceInvocation: {
-    mode: 'dapr' | 'http';
+    mode: 'dapr' | 'direct';
   };
   redis: {
     host: string;
@@ -74,8 +74,8 @@ const config: Config = {
     allowCredentials: process.env.CORS_ALLOW_CREDENTIALS === 'true',
   },
   serviceInvocation: {
-    // 'dapr' for Container Apps/K8s, 'http' for App Service
-    mode: (process.env.SERVICE_INVOCATION_MODE || 'dapr') as 'dapr' | 'http',
+    // 'dapr' for Container Apps/K8s, 'direct' for App Service
+    mode: (process.env.PLATFORM_MODE || 'dapr') as 'dapr' | 'direct',
   },
   redis: {
     host: process.env.REDIS_HOST || '',

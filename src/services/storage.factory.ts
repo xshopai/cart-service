@@ -1,6 +1,6 @@
 /**
  * Storage Factory - Abstracts storage backend (Dapr vs Redis)
- * Returns the appropriate storage service based on SERVICE_INVOCATION_MODE config
+ * Returns the appropriate storage service based on PLATFORM_MODE config
  */
 import config from '../core/config.js';
 import logger from '../core/logger.js';
@@ -17,8 +17,8 @@ export interface StorageService {
 }
 
 /**
- * Get the appropriate storage service based on SERVICE_INVOCATION_MODE
- * - 'http': Direct Redis connection (Azure App Service)
+ * Get the appropriate storage service based on PLATFORM_MODE
+ * - 'direct': Direct Redis connection (Azure App Service)
  * - 'dapr': Through Dapr sidecar (Azure Container Apps / K8s)
  */
 function getStorageService(): StorageService {
@@ -26,7 +26,7 @@ function getStorageService(): StorageService {
 
   logger.info('Initializing storage service', { mode });
 
-  if (mode === 'http') {
+  if (mode === 'direct') {
     // Direct Redis connection for App Service
     return {
       getState: (userId: string) => redisService.getState(userId),
@@ -35,7 +35,7 @@ function getStorageService(): StorageService {
       checkHealth: () => redisService.checkHealth(),
       // No pubsub in http mode - just log and return success
       publishEvent: async (topic: string, eventData: Record<string, unknown>) => {
-        logger.debug('Skipping event publish in http mode', { topic, eventData });
+        logger.debug('Skipping event publish in direct mode', { topic, eventData });
         return true;
       },
     };

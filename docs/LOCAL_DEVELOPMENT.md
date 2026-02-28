@@ -33,7 +33,7 @@ Or use the pre-configured mode-specific files:
 
 ```bash
 # For HTTP mode (direct Redis)
-cp .env.http .env
+cp .env.example .env
 
 # For Dapr mode
 cp .env.dapr .env

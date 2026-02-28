@@ -20,7 +20,7 @@ process.env.GUEST_CART_TTL_DAYS = '7';
 process.env.CORS_ALLOWED_ORIGINS = '*';
 
 // Dapr configuration (mocked in tests)
-process.env.SERVICE_INVOCATION_MODE = 'dapr';
+process.env.PLATFORM_MODE = 'dapr';
 process.env.DAPR_HOST = 'localhost';
 process.env.DAPR_HTTP_PORT = '3508';
 process.env.DAPR_GRPC_PORT = '50008';

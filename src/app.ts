@@ -6,6 +6,7 @@ import express from 'express';
 import cors from 'cors';
 import config from './core/config.js';
 import logger from './core/logger.js';
+import { register as consulRegister, deregister as consulDeregister } from './core/consulRegistration.js';
 import { traceContextMiddleware } from './middlewares/traceContext.middleware.js';
 import { errorHandler } from './controllers/cart.controller.js';
 import cartRoutes from './routes/cart.routes.js';
@@ -101,7 +102,8 @@ export const startServer = (): Promise<void> => {
     const HOST = config.service.host;
     const displayHost = HOST === '0.0.0.0' ? 'localhost' : HOST;
 
-    app.listen(PORT, HOST, () => {
+    app.listen(PORT, HOST, async () => {
+      await consulRegister('cart-service', PORT, HOST);
       logger.info(`Cart service running on ${displayHost}:${PORT}`, {
         service: config.service.name,
         version: config.service.version,
@@ -128,6 +130,9 @@ export const shutdown = async (signal: string): Promise<void> => {
   logger.info(`Received ${signal}, starting graceful shutdown...`);
 
   try {
+    // Deregister from Consul
+    await consulDeregister();
+
     // Close Dapr client
     await daprService.close();
 

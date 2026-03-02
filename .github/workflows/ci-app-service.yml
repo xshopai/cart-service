@@ -169,7 +169,7 @@ jobs:
       - name: Prepare deployment package
         run: |
           # Install production dependencies only
-          npm ci --production
+          npm ci --omit=dev
 
           # List artifacts
           echo "Deployment artifacts:"
